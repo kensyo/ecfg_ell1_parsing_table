@@ -7,7 +7,14 @@ const nextConfig: NextConfig = {
     unoptimized: true,
   },
   basePath: '/ecfg_ell1_parsing_table',
-  assetPrefix: '/ecfg_ell1_parsing_table'
+  assetPrefix: '/ecfg_ell1_parsing_table',
+  webpack: (config) => {
+    config.experiments = {
+      ...config.experiments,
+      asyncWebAssembly: true,
+    };
+    return config;
+  },
 };
 
 export default nextConfig;
