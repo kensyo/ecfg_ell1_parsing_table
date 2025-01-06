@@ -50,12 +50,12 @@ jobs:
           # If source files changed but packages didn't, rebuild from a prior cache.
           restore-keys: |
             ${{ runner.os }}-nextjs-${{ hashFiles('**/bun.lockb') }}-
-      - name: Install dependencies
-        run: bun install
       - name: Build WebAssembly backend
         run: |
           cd wasm_backend
           wasm-pack build --release
+      - name: Install dependencies
+        run: bun install
       - name: Build with Next.js
         run: bun run next build
       - name: Upload artifact
