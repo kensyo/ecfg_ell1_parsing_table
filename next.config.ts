@@ -10,7 +10,7 @@ const nextConfig: NextConfig = {
   assetPrefix: '/ecfg_ell1_parsing_table',
   webpack: (config) => {
     config.experiments = {
-      ...config.experiments,
+      ...(config.experiments || {}),
       asyncWebAssembly: true,
     };
     return config;
