@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
-    "start": "next start",
+    "start": "next build && mkdir output && mv out output && mv output/out output/ecfg_ell1_parsing_table && mv output out && bunx serve@latest out",
     "lint": "next lint"
   },
   "dependencies": {

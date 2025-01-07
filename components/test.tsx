@@ -1,10 +1,18 @@
 'use client';
 
-import { greet } from "wasm_backend";
+import { useEffect } from "react";
 
 export default function Test() {
-    greet();
+    const loadExample = async () => {
+        const wasm = await import(`wasm_backend`);
+        wasm.greet();
+    };
+
+    useEffect(() => {
+        loadExample();
+    }, []);
+
     return (
-        <div>test</div>
+        <p>fugapiyo</p>
     );
 }
