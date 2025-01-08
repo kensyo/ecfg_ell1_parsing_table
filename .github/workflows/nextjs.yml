@@ -32,11 +32,11 @@ jobs:
         with:
           node-version: 18
 
-      # Pages用の設定 (basePathや画像最適化の無効化を自動で注入してくれる)
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-        with:
-          static_site_generator: next
+      # # Pages用の設定 (basePathや画像最適化の無効化を自動で注入してくれる)
+      # - name: Setup Pages
+      #   uses: actions/configure-pages@v5
+      #   with:
+      #     static_site_generator: next
 
       # キャッシュ (npm & ビルドキャッシュ)
       - name: Restore cache
