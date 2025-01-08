@@ -9,9 +9,12 @@ const nextConfig: NextConfig = {
   basePath: '/ecfg_ell1_parsing_table',
   assetPrefix: '/ecfg_ell1_parsing_table',
   webpack: (config) => {
+    config.resolve.extensions = [...config.resolve.extensions, ".wasm"];
+
     config.experiments = {
       ...(config.experiments || {}),
       asyncWebAssembly: true,
+      syncWebAssembly: true,
     };
     config.module.rules.push({
       test: /\.wasm$/,
