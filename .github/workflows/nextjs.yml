@@ -4,6 +4,7 @@ on:
   # mainブランチにpushされたら実行
   push:
     branches: ["main"]
+
   # Actionsタブから手動実行
   workflow_dispatch:
 
@@ -18,27 +19,30 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Build Job
   build:
     runs-on: ubuntu-latest
     steps:
-      # リポジトリをチェックアウト
+      # 1. リポジトリをチェックアウト
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Nodeをセットアップ (バージョンはお好みで)
+      # 2. Rust ツールチェーンを設定 (cargo 1.81.0)
+      #    dtolnay/rust-toolchain@v1 が便利ですが、ここでは cargo のバージョン固定を例示
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: 1.81.0
+          # 必要に応じて components: rustfmt, clippy など指定
+          override: true
+
+      # 3. Node を設定 (v23.5.0)
+      #    もし 23.5.0 が取得できない場合は '23.x' や '23' にするなど調整が必要
       - name: Setup Node
         uses: actions/setup-node@v3
         with:
-          node-version: 18
+          node-version: '23.5.0'
 
-      # # Pages用の設定 (basePathや画像最適化の無効化を自動で注入してくれる)
-      # - name: Setup Pages
-      #   uses: actions/configure-pages@v5
-      #   with:
-      #     static_site_generator: next
-
-      # キャッシュ (npm & ビルドキャッシュ)
+      # 4. キャッシュ (npm & ビルドキャッシュ)
       - name: Restore cache
         uses: actions/cache@v4
         with:
@@ -49,34 +53,34 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-
 
-      # wasm-pack をインストール
+      # 5. wasm-pack を 0.13.1 でインストール
       - name: Install wasm-pack
         run: |
-          curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+          cargo install wasm-pack --version 0.13.1
 
-      # WebAssembly バックエンドをビルド
+      # 6. WebAssembly バックエンドをビルド
       - name: Build WebAssembly backend
         run: |
           cd wasm_backend
-          wasm-pack build --release --no-wasm-opt
+          wasm-pack build --release --target bundler
 
-      # npm で依存関係をインストール
+      # 7. npm で依存関係をインストール
       - name: Install dependencies
         run: npm install
 
-      # Next.js のビルド (静的エクスポート)
+      # 8. Next.js のビルド (静的エクスポートなど)
       - name: Build with Next.js
         env:
           NODE_OPTIONS: "--experimental-wasm-modules"  # WASM実験オプション
-        run: npm run build
+        run: |
+          npm run build
 
-      # ビルド結果 (./out) をアップロード
+      # 9. ビルド成果物 (./out) をアップロード
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: ./out
 
-  # Deploy Job
   deploy:
     environment:
       name: github-pages
