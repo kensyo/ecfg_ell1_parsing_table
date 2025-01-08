@@ -32,7 +32,7 @@ jobs:
         with:
           node-version: 18
 
-      # # # Pages用の設定 (basePathや画像最適化の無効化を自動で注入してくれる)
+      # # Pages用の設定 (basePathや画像最適化の無効化を自動で注入してくれる)
       # - name: Setup Pages
       #   uses: actions/configure-pages@v5
       #   with:
@@ -58,7 +58,7 @@ jobs:
       - name: Build WebAssembly backend
         run: |
           cd wasm_backend
-          wasm-pack build --release
+          wasm-pack build --release --no-wasm-opt
 
       # npm で依存関係をインストール
       - name: Install dependencies
