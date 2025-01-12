@@ -34,3 +34,24 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+### 開発サーバ起動
+
+```bash
+cd wasm_backend
+wasm-pack build # rust 側に手を加えたらこれを実行
+cd ..
+bun dev
+```
+
+### ビルドプロセス
+
+```bash
+cd wasm_backend
+wasm-pack build --release
+cd ..
+bun install
+bun run start # ビルドおよびサーバ起動
+```
+
+`push` すると CI が動く(`.github/workflows/nextjs.yml`)
