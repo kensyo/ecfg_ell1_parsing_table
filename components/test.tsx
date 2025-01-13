@@ -1,10 +1,8 @@
-'use client';
+import { ECFGWrapper } from "wasm_backend";
 
-import { useEffect } from "react";
-import {ECFGWrapper } from "wasm_backend";
-
-export default function Test() {
+export default async function Test() {
     const loadExample = async () => {
+        // const wasm = await import(`wasm_backend`);
         // wasm.greet();
         const terminals = ["+", "*", "i", "(", ")"];
         const nonTerminals = ["E", "T", "F"];
@@ -25,13 +23,19 @@ export default function Test() {
         const isNullable = ecfgWrapper.calculate_nullable(symbols);
         console.log("Nullable?", isNullable);
 
+        return isNullable
     };
 
-    useEffect(() => {
-        loadExample();
-    }, []);
+    const hoge = await loadExample();
+
+    let moji = "";
+    if (hoge) {
+        moji = "yes";
+    } else {
+        moji = "no";
+    }
 
     return (
-        <p>fugapiyo</p>
+        <p>{moji}</p>
     );
 }
