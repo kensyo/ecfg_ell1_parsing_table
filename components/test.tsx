@@ -5,7 +5,26 @@ import { useEffect } from "react";
 export default function Test() {
     const loadExample = async () => {
         const wasm = await import(`wasm_backend`);
-        wasm.greet();
+        // wasm.greet();
+        const terminals = ["+", "*", "i", "(", ")"];
+        const nonTerminals = ["E", "T", "F"];
+        const productions = [
+            { lhs: "E", rhs: ["T", "\\{", "+", "T", "\\}"] },
+            { lhs: "T", rhs: ["F", "\\{", "*", "F", "\\}"] },
+            { lhs: "F", rhs: ["(", "E", ")", "\\|", "i"] },
+        ];
+        const startSymbol = "E";
+
+        // コンストラクタ呼び出し時にJsValueがRust側に渡され、RustでVec<String>などに変換
+        const ecfgWrapper = new wasm.ECFGWrapper(terminals, nonTerminals, productions, startSymbol);
+
+        console.log("is_ell1:", ecfgWrapper.is_ell1());
+
+        // 例: calculate_nullable
+        const symbols = ["\\{", "E", "\\}"];
+        const isNullable = ecfgWrapper.calculate_nullable(symbols);
+        console.log("Nullable?", isNullable);
+
     };
 
     useEffect(() => {
