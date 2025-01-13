@@ -52,13 +52,14 @@ impl ECFGWrapper {
         ECFGWrapper { inner }
     }
 
-    /// たとえば is_ell1() をそのままエクスポート
-    #[wasm_bindgen]
+    // #[wasm_bindgen] // impl にこの指定をしているのでなくても良い。
     pub fn is_ell1(&self) -> bool {
         self.inner.is_ell1()
     }
 
-    /// 以下、他のメソッドも同様にラップ
+    // 引数が JsValue になっているが、Vec<String> なら普通に受け取れる。返り値もVec<String>
+    // なら普通に返せるが、HashSet<String> は無理だった。
+    // 今回は JsValue のままにしておく。
     #[wasm_bindgen]
     pub fn calculate_nullable(&self, symbols: JsValue) -> bool {
         let vec: Vec<String> =
@@ -66,7 +67,6 @@ impl ECFGWrapper {
         self.inner.calculate_nullable(&vec)
     }
 
-    /// 例: first_set を返す
     #[wasm_bindgen]
     pub fn calculate_first_set(&self, symbols: JsValue) -> JsValue {
         let vec: Vec<String> =
@@ -76,7 +76,6 @@ impl ECFGWrapper {
         serde_wasm_bindgen::to_value(&set).unwrap()
     }
 
-    /// 以下、同様に全 pub メソッドをラップする
     #[wasm_bindgen]
     pub fn calculate_follow_set(&self, sym: &str) -> JsValue {
         let set = self.inner.calculate_follow_set(&sym.to_string());
@@ -89,22 +88,3 @@ impl ECFGWrapper {
         serde_wasm_bindgen::to_value(&map).unwrap()
     }
 }
-
-// use wasm_bindgen::prelude::*;
-// use ll1_checker::ECFG;
-
-// // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
-// // allocator.
-// #[cfg(feature = "wee_alloc")]
-// #[global_allocator]
-// static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
-//
-// #[wasm_bindgen]
-// extern {
-//     fn alert(s: &str);
-// }
-//
-// #[wasm_bindgen]
-// pub fn greet() {
-//     alert("Hello!!");
-// }

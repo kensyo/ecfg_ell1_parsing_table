@@ -2,8 +2,6 @@ import { ECFGWrapper } from "wasm_backend";
 
 export default async function Test() {
     const loadExample = async () => {
-        // const wasm = await import(`wasm_backend`);
-        // wasm.greet();
         const terminals = ["+", "*", "i", "(", ")"];
         const nonTerminals = ["E", "T", "F"];
         const productions = [
