@@ -1,9 +1,9 @@
-import Test from "@/components/test";
+import ECFGForm from "@/components/ECFG-form";
 
 export default function Home() {
   return (
     <main className="container p-6">
-      <Test />
+      <ECFGForm />
     </main>
   );
 }
