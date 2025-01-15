@@ -32,7 +32,7 @@ export default function RootLayout({
       <body
         className={cn(
           `${geistSans.variable} ${geistMono.variable} antialiased`,
-          "min-h-dvh",
+          "min-h-dvh bg-background",
         )}
       >
         <ThemeProvider
@@ -48,7 +48,11 @@ export default function RootLayout({
             <span className="flex-1"></span>
             <ModeToggle />
           </header>
-          {children}
+
+          <div className="mx-auto min-h-[calc(100dvh-128px)] bg-muted p-3">
+            {children}
+          </div>
+
           <footer className="sticky top-full flex h-16 items-center justify-center gap-2 border-t px-6">
             <p className="text-sm text-muted-foreground">© kensyo</p>
             <Button size="icon" asChild variant="ghost">
