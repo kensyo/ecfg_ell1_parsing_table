@@ -4,17 +4,20 @@ import React, {
   useEffect,
   useCallback,
   forwardRef,
+  useImperativeHandle,
 } from "react";
 
-type ResizableInputProps = React.InputHTMLAttributes<HTMLInputElement>;
-
-const YOHAKU = 0;
-const DEFAULT_W = 15;
+type ResizableInputProps = React.InputHTMLAttributes<HTMLInputElement> & {
+  yohaku?: number;
+  defaultW?: number;
+};
 
 const AutoResizeInput = forwardRef<HTMLInputElement, ResizableInputProps>(
   (props, ref) => {
+    const defaultW = props.defaultW || 15;
+    const yohaku = props.yohaku || 0;
     const inputRef = useRef<HTMLInputElement>(null);
-    const [inputWidth, setInputWidth] = useState(DEFAULT_W);
+    const [inputWidth, setInputWidth] = useState(defaultW);
 
     const updateWidth = useCallback(() => {
       if (inputRef.current) {
@@ -26,12 +29,12 @@ const AutoResizeInput = forwardRef<HTMLInputElement, ResizableInputProps>(
           inputRef.current.value || props.placeholder || "";
 
         document.body.appendChild(tempSpan);
-        const textWidth = tempSpan.offsetWidth + YOHAKU;
+        const textWidth = tempSpan.offsetWidth + yohaku;
         document.body.removeChild(tempSpan);
 
-        setInputWidth(Math.max(DEFAULT_W, textWidth));
+        setInputWidth(Math.max(defaultW, textWidth));
       }
-    }, [props.placeholder]);
+    }, [props.placeholder, defaultW, yohaku]);
 
     useEffect(() => {
       updateWidth();
@@ -44,18 +47,12 @@ const AutoResizeInput = forwardRef<HTMLInputElement, ResizableInputProps>(
       updateWidth();
     };
 
+    useImperativeHandle(ref, () => inputRef.current as HTMLInputElement);
+
     return (
       <input
         {...props}
-        ref={(node) => {
-          inputRef.current = node;
-          if (typeof ref === "function") {
-            ref(node);
-          } else if (ref) {
-            (ref as React.MutableRefObject<HTMLInputElement | null>).current =
-              node;
-          }
-        }}
+        ref={inputRef}
         style={{
           ...props.style,
           width: `${inputWidth}px`,
