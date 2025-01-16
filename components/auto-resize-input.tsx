@@ -9,15 +9,14 @@ import React, {
 
 type ResizableInputProps = React.InputHTMLAttributes<HTMLInputElement> & {
   yohaku?: number;
-  defaultW?: number;
+  defaultWidth?: number;
 };
 
 const AutoResizeInput = forwardRef<HTMLInputElement, ResizableInputProps>(
   (props, ref) => {
-    const defaultW = props.defaultW || 15;
-    const yohaku = props.yohaku || 0;
+    const { defaultWidth = 15, yohaku = 0, ...rest } = props;
     const inputRef = useRef<HTMLInputElement>(null);
-    const [inputWidth, setInputWidth] = useState(defaultW);
+    const [inputWidth, setInputWidth] = useState(defaultWidth);
 
     const updateWidth = useCallback(() => {
       if (inputRef.current) {
@@ -32,9 +31,9 @@ const AutoResizeInput = forwardRef<HTMLInputElement, ResizableInputProps>(
         const textWidth = tempSpan.offsetWidth + yohaku;
         document.body.removeChild(tempSpan);
 
-        setInputWidth(Math.max(defaultW, textWidth));
+        setInputWidth(Math.max(defaultWidth, textWidth));
       }
-    }, [props.placeholder, defaultW, yohaku]);
+    }, [props.placeholder, defaultWidth, yohaku]);
 
     useEffect(() => {
       updateWidth();
@@ -51,7 +50,7 @@ const AutoResizeInput = forwardRef<HTMLInputElement, ResizableInputProps>(
 
     return (
       <input
-        {...props}
+        {...rest}
         ref={inputRef}
         style={{
           ...props.style,
