@@ -41,9 +41,7 @@ const InputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
       if (i === 0 && typeof forwardedRef === "function") {
         forwardedRef(el);
       } else if (i === 0 && forwardedRef && "current" in forwardedRef) {
-        (
-          forwardedRef as React.MutableRefObject<HTMLInputElement | null>
-        ).current = el;
+        (forwardedRef as React.RefObject<HTMLInputElement | null>).current = el;
       }
     };
 
