@@ -291,7 +291,7 @@ const CustomizedInputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
         ))}
 
         {/** 最後の入力欄 */}
-        <input
+        <AutoResizeInput
           ref={(el) => setInputRef(el, value.length)}
           className="flex-1 outline-none placeholder:text-neutral-500 dark:bg-neutral-950 dark:placeholder:text-neutral-400"
           value={inputValues[value.length] ?? ""}
