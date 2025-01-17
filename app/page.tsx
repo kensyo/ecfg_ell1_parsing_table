@@ -1,7 +1,7 @@
 "use client";
-import AutoResizeInput from "@/components/auto-resize-input";
 import ECFGForm from "@/components/ECFG-form";
 import { CustomizedInputTags } from "@/components/ui/customized-input-tags";
+import { InputTags } from "@/components/ui/input-tags";
 import { useState } from "react";
 
 export default function Home() {
@@ -11,12 +11,13 @@ export default function Home() {
       <ECFGForm />
       <p>{values.join(", ")}</p>
       <CustomizedInputTags
+        maxTags={3}
         value={values}
-        onChange={setValues}
-        // placeholder="Enter values, comma separated..."
-        className="max-w-[500px]"
+        onChange={(data) => {
+          setValues(data);
+        }}
+        className="max-w-[1000px]"
       />
-      <AutoResizeInput onChange={(data) => console.log(data)} />
     </main>
   );
 }
