@@ -11,6 +11,7 @@ type InputProps = React.ComponentProps<"input">;
 type InputTagsProps = Omit<InputProps, "value" | "onChange"> & {
   value: string[];
   onChange: React.Dispatch<React.SetStateAction<string[]>>;
+  maxTags?: number;
 };
 
 /**
@@ -21,7 +22,7 @@ type InputTagsProps = Omit<InputProps, "value" | "onChange"> & {
  * - 日本語IME変換中のEnterを除外
  */
 const InputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
-  ({ className, value, onChange, ...props }, forwardedRef) => {
+  ({ className, value, onChange, maxTags, ...props }, forwardedRef) => {
     // 各入力欄の文字列
     const [inputValues, setInputValues] = React.useState<string[]>(() =>
       Array(value.length + 1).fill(""),
@@ -73,6 +74,11 @@ const InputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
      */
     const addTagAtIndex = (tag: string, index: number) => {
       if (!tag) return;
+
+      if (maxTags !== undefined && value.length >= maxTags) {
+        return;
+      }
+
       // タグ配列に挿入
       const newValue = [...value.slice(0, index), tag, ...value.slice(index)];
       onChange(newValue);
