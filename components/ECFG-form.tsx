@@ -12,6 +12,13 @@ import { FormItem } from "./ui/form";
 import { Label } from "./ui/label";
 import { Button } from "./ui/button";
 import { CustomizedInputTags } from "./ui/customized-input-tags";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 
 // -------------------------------------
 // 型定義
@@ -211,13 +218,15 @@ export default function ECFGForm() {
           </div>
         ))}
 
-        <Button
-          type="button"
-          onClick={() => append({ lhs: "", rhs: [] })}
-          className="mt-4 bg-green-500 text-white"
-        >
-          Add Production
-        </Button>
+        <div>
+          <Button
+            type="button"
+            onClick={() => append({ lhs: "", rhs: [] })}
+            className="mt-4 bg-green-500 text-white"
+          >
+            Add Production
+          </Button>
+        </div>
       </FormItem>
 
       {/* 4) Start symbol (NonTerminals から選択) */}
@@ -227,14 +236,21 @@ export default function ECFGForm() {
           name="startSymbol"
           control={control}
           render={({ field }) => (
-            <select {...field} className="rounded border px-2 py-1">
-              <option value="">(select a start symbol)</option>
-              {nonTerminals.map((nt) => (
-                <option key={nt} value={nt}>
-                  {nt}
-                </option>
-              ))}
-            </select>
+            <Select
+              value={field.value} // フォームの値を反映
+              onValueChange={(value) => field.onChange(value)} // 値が変更されたときにフォームの状態を更新
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Choose NonTerminal" />
+              </SelectTrigger>
+              <SelectContent>
+                {nonTerminals.map((nt) => (
+                  <SelectItem key={nt} value={nt}>
+                    {nt}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
         />
       </FormItem>
