@@ -39,7 +39,12 @@ export default function ECFGForm() {
   // -------------------------------------
   // useForm & State
   // -------------------------------------
-  const { control, handleSubmit, setValue } = useForm<ECFG>({
+  const {
+    control,
+    handleSubmit,
+    setValue,
+    formState: { errors },
+  } = useForm<ECFG>({
     defaultValues: {
       terminals: [],
       nonTerminals: [],
@@ -159,12 +164,25 @@ export default function ECFGForm() {
       {/* 3) productions (手動編集) */}
       <FormItem>
         <Label>Productions</Label>
+        {errors.productions && (
+          <span className="px-2 text-sm text-red-500">
+            {"The symbol in LHS must not be empty."}
+          </span>
+        )}
         {fields.map((fieldItem, index) => (
           <div key={fieldItem.id} className="mb-4 flex items-center gap-2">
             {/* LHS (単一タグ) */}
+            <div>
+              {errors.productions && errors.productions[index]?.lhs && (
+                <span className="px-2 text-sm text-red-500">{"*"}</span>
+              )}
+            </div>
             <div className="flex-1" style={{ flexBasis: "15%" }}>
               <Controller
                 name={`productions.${index}.lhs`}
+                rules={{
+                  required: "The symbol in LHS must not be empty.",
+                }}
                 control={control}
                 render={({ field }) => (
                   <CustomizedInputTags
@@ -232,8 +250,16 @@ export default function ECFGForm() {
       {/* 4) Start symbol (NonTerminals から選択) */}
       <FormItem>
         <Label>Start symbol</Label>
+        {errors.startSymbol && (
+          <span className="px-2 text-sm text-red-500">
+            {errors.startSymbol.message}
+          </span>
+        )}
         <Controller
           name="startSymbol"
+          rules={{
+            required: "Start symbol is required.",
+          }}
           control={control}
           render={({ field }) => (
             <Select
