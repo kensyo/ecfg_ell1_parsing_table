@@ -18,14 +18,22 @@ type InputTagsProps = Omit<InputProps, "value" | "onChange"> & {
  */
 const CustomizedInputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
   ({ className, value, onChange, maxTags, ...props }, forwardedRef) => {
+    // 変更1: ランダムに加えてキー用カウンターも使う
+    // ただし、コードを最小限に変えたいので、Date.now() + Math.random() 自体は維持
+    const keyCounterRef = React.useRef(0);
+
     // 各入力欄の文字列
     const [inputValues, setInputValues] = React.useState<string[]>(() =>
       Array(value.length + 1).fill(""),
     );
 
     // タグ表示用キー
+    // 変更2: 初期生成時にも suffix をつけて衝突を回避
     const [keys, setKeys] = React.useState<string[]>(() =>
-      value.map(() => `${Date.now()}-${Math.random()}`),
+      value.map(() => {
+        keyCounterRef.current++;
+        return `tag-${Date.now()}-${Math.random()}-${keyCounterRef.current}`;
+      }),
     );
 
     // すべての input 要素の参照管理
@@ -55,7 +63,11 @@ const CustomizedInputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
         setKeys((oldKeys) => {
           const newKeys = [...oldKeys];
           for (let i = 0; i < diff; i++) {
-            newKeys.push(`${Date.now()}-${Math.random()}`);
+            // ここも最小限の変更で安定度を高める
+            keyCounterRef.current++;
+            newKeys.push(
+              `tag-${Date.now()}-${Math.random()}-${keyCounterRef.current}`,
+            );
           }
           return newKeys;
         });
@@ -79,11 +91,16 @@ const CustomizedInputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
       const newValue = [...value.slice(0, index), tag, ...value.slice(index)];
       onChange(newValue);
 
-      setKeys((oldKeys) => [
-        ...oldKeys.slice(0, index),
-        `${Date.now()}-${Math.random()}`,
-        ...oldKeys.slice(index),
-      ]);
+      setKeys((oldKeys) => {
+        const copy = [...oldKeys];
+        keyCounterRef.current++;
+        copy.splice(
+          index,
+          0,
+          `tag-${Date.now()}-${Math.random()}-${keyCounterRef.current}`,
+        );
+        return copy;
+      });
 
       setInputValues((oldValues) => {
         const copy = [...oldValues];
@@ -251,7 +268,8 @@ const CustomizedInputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
         )}
       >
         {value.map((tag, i) => (
-          <React.Fragment key={keys[i]}>
+          // 変更3: key をさらに i と結合する
+          <React.Fragment key={`${keys[i]}-${i}`}>
             {/** タグ i の直前の入力欄 */}
             <AutoResizeInput
               defaultWidth={1}
