@@ -15,29 +15,29 @@ type InputTagsProps = Omit<InputProps, "value" | "onChange"> & {
 
 /**
  * タグを自由な位置に追加できる InputTags コンポーネント
- * - Enter でタグ追加 & 入力欄リセット
- * - Backspace で【カーソルが先頭】なら前のタグを削除
+ * - Enter でタグ追加 & 入力欄リセット (ただしIME変換中は除外)
+ * - Backspace でカーソルが先頭なら前のタグ削除
  * - 矢印キーで左右の入力欄に移動
+ * - 日本語IME変換中のEnterを除外
  */
 const InputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
   ({ className, value, onChange, ...props }, forwardedRef) => {
-    // 各入力欄の文字列を保管する（タグ数 + 1 個）
+    // 各入力欄の文字列
     const [inputValues, setInputValues] = React.useState<string[]>(() =>
       Array(value.length + 1).fill(""),
     );
 
-    // タグ表示用キー配列
+    // タグ表示用のキー
     const [keys, setKeys] = React.useState<string[]>(() =>
       value.map(() => `${Date.now()}-${Math.random()}`),
     );
 
-    // すべての入力欄を参照管理する
+    // 複数 input の ref 管理
     const inputRefs = React.useRef<Array<HTMLInputElement | null>>([]);
 
-    // ref を設定する際のヘルパー
+    // ref を設定するヘルパー
     const setInputRef = (el: HTMLInputElement | null, i: number) => {
       inputRefs.current[i] = el;
-      // forwardedRef は一番最初の input にだけ割り当てる（お好みで）
       if (i === 0 && typeof forwardedRef === "function") {
         forwardedRef(el);
       } else if (i === 0 && forwardedRef && "current" in forwardedRef) {
@@ -47,9 +47,10 @@ const InputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
       }
     };
 
-    /**
-     * 外部で value が変化したとき、keys や inputValues の整合性を合わせる
-     */
+    // 「IME入力中かどうか」を管理
+    const [isComposing, setIsComposing] = React.useState(false);
+
+    // 外部で value が増減したときに keys, inputValues を同期
     React.useEffect(() => {
       if (value.length > keys.length) {
         // タグが増えた
@@ -67,26 +68,25 @@ const InputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
         setKeys((oldKeys) => oldKeys.slice(0, value.length));
         setInputValues((oldValues) => oldValues.slice(0, value.length + 1));
       }
-      // タグ数が変わっていないなら何もしない
     }, [value, keys]);
 
     /**
-     * 指定インデックスにタグを挿入
+     * タグを index に挿入
      */
     const addTagAtIndex = (tag: string, index: number) => {
       if (!tag) return;
-      // タグ追加
+      // タグ配列に挿入
       const newValue = [...value.slice(0, index), tag, ...value.slice(index)];
       onChange(newValue);
 
-      // キーを挿入
+      // key も挿入
       setKeys((oldKeys) => [
         ...oldKeys.slice(0, index),
         `${Date.now()}-${Math.random()}`,
         ...oldKeys.slice(index),
       ]);
 
-      // inputValues にも空欄を挿入
+      // inputValues にも空欄を1つ追加
       setInputValues((oldValues) => {
         const copy = [...oldValues];
         copy.splice(index, 0, "");
@@ -95,22 +95,21 @@ const InputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
     };
 
     /**
-     * 指定インデックスのタグを削除
+     * タグを index で削除
      */
     const removeTag = (index: number) => {
       const newValue = value.filter((_, i) => i !== index);
       onChange(newValue);
 
       setKeys((oldKeys) => oldKeys.filter((_, i) => i !== index));
-
       setInputValues((oldValues) => {
         const copy = [...oldValues];
-        // タグ i を削除したら「i+1番目の入力欄」を削除
+        // タグ i を削除したので、i+1 の入力欄を削除
         const removeIndex = index + 1;
         if (removeIndex < copy.length) {
           copy.splice(removeIndex, 1);
         } else {
-          // 末尾タグなら最後の要素を削除
+          // 末尾タグなら pop で削除
           copy.pop();
         }
         return copy;
@@ -118,7 +117,7 @@ const InputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
     };
 
     /**
-     * 入力欄の onKeyDown
+     * キー操作
      */
     const handleKeyDown = (
       e: React.KeyboardEvent<HTMLInputElement>,
@@ -129,13 +128,13 @@ const InputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
       const selectionEnd = e.currentTarget.selectionEnd;
       if (selectionStart == null || selectionEnd == null) return;
 
-      // Enter でタグ追加
-      if (e.key === "Enter") {
+      // Enter: IME変換中でなければタグを追加
+      if (e.key === "Enter" && !isComposing) {
         e.preventDefault();
         const trimmed = currentValue.trim();
         if (trimmed !== "") {
           addTagAtIndex(trimmed, index);
-          // 追加後に index+1 が空欄になるためリセット
+          // 追加直後、index+1 が空欄なのでリセット
           setInputValues((oldValues) => {
             const copy = [...oldValues];
             if (index + 1 < copy.length) {
@@ -147,7 +146,7 @@ const InputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
         return;
       }
 
-      // Backspace: カーソルが先頭にあれば前のタグを削除
+      // Backspace: カーソルが先頭なら前のタグを削除
       if (
         e.key === "Backspace" &&
         index > 0 &&
@@ -159,7 +158,7 @@ const InputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
         return;
       }
 
-      // ← 左キー: 左端なら前の入力欄末尾へ
+      // ← 左キー: 左端なら前の入力末尾へ
       if (
         e.key === "ArrowLeft" &&
         selectionStart === 0 &&
@@ -176,7 +175,7 @@ const InputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
         return;
       }
 
-      // → 右キー: 右端なら次の入力欄先頭へ
+      // → 右キー: 右端なら次の入力先頭へ
       if (
         e.key === "ArrowRight" &&
         selectionStart === currentValue.length &&
@@ -194,7 +193,7 @@ const InputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
     };
 
     /**
-     * 入力欄の onChange
+     * 入力変更
      */
     const handleChange = (
       e: React.ChangeEvent<HTMLInputElement>,
@@ -206,6 +205,16 @@ const InputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
         copy[index] = inputVal;
         return copy;
       });
+    };
+
+    /**
+     * IME開始/終了ハンドラ
+     */
+    const handleCompositionStart = () => {
+      setIsComposing(true);
+    };
+    const handleCompositionEnd = () => {
+      setIsComposing(false);
     };
 
     return (
@@ -224,6 +233,8 @@ const InputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
               value={inputValues[i] ?? ""}
               onChange={(e) => handleChange(e, i)}
               onKeyDown={(e) => handleKeyDown(e, i)}
+              onCompositionStart={handleCompositionStart}
+              onCompositionEnd={handleCompositionEnd}
               {...props}
             />
 
@@ -242,13 +253,15 @@ const InputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
           </React.Fragment>
         ))}
 
-        {/** 最後にもうひとつ入力欄 */}
+        {/** 配列末尾の入力欄 */}
         <input
           ref={(el) => setInputRef(el, value.length)}
           className="flex-1 outline-none placeholder:text-neutral-500 dark:bg-neutral-950 dark:placeholder:text-neutral-400"
           value={inputValues[value.length] ?? ""}
           onChange={(e) => handleChange(e, value.length)}
           onKeyDown={(e) => handleKeyDown(e, value.length)}
+          onCompositionStart={handleCompositionStart}
+          onCompositionEnd={handleCompositionEnd}
           {...props}
         />
       </div>
