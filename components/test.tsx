@@ -1,7 +1,10 @@
+"use client";
+import { useEffect, useState } from "react";
 import { ECFGWrapper } from "wasm_backend";
 
-export default async function Test() {
-  const loadExample = async () => {
+export default function Test() {
+  const [s, setS] = useState<boolean>(false);
+  const loadExample = () => {
     const terminals = ["+", "*", "i", "(", ")"];
     const nonTerminals = ["E", "T", "F"];
     const productions = [
@@ -29,14 +32,15 @@ export default async function Test() {
     return isNullable;
   };
 
-  const hoge = await loadExample();
+  useEffect(() => {
+    const s = loadExample();
+    setS(s);
+  }, []);
 
-  let moji = "";
-  if (hoge) {
-    moji = "yes";
-  } else {
-    moji = "no";
-  }
-
-  return <p>{moji}</p>;
+  return (
+    <div>
+      {s && <p>yes!!</p>}
+      {!s && <p>no!!</p>}
+    </div>
+  );
 }
