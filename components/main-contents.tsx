@@ -2,6 +2,7 @@
 import ECFGForm from "@/components/ECFG-form";
 import { CustomizedInputTags } from "@/components/ui/customized-input-tags";
 import { useState } from "react";
+import { InputTags } from "./ui/input-tags";
 
 export default function MainContents() {
   // const [values, setValues] = useState<string[]>([]);
@@ -9,8 +10,7 @@ export default function MainContents() {
     <div>
       <ECFGForm />
       {/* <p>{values.join(", ")}</p> */}
-      {/* <CustomizedInputTags */}
-      {/*   maxTags={3} */}
+      {/* <InputTags */}
       {/*   value={values} */}
       {/*   onChange={(data) => { */}
       {/*     setValues(data); */}
