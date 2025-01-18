@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
+import { ECFGWrapper } from "@/wasm_backend/pkg/wasm_backend";
 
 // -------------------------------------
 // 型定義
@@ -33,6 +34,10 @@ type ECFG = {
   nonTerminals: string[];
   productions: Production[];
   startSymbol: string;
+  forNullable: string[];
+  forFirstSet: string[];
+  forFollowSet: string;
+  forDirectorSet: string;
 };
 
 export default function ECFGForm() {
@@ -112,6 +117,13 @@ export default function ECFGForm() {
   // -------------------------------------
   const onValid = (data: ECFG) => {
     setFormData(data);
+    const ecfg = new ECFGWrapper(
+      data.terminals,
+      data.nonTerminals,
+      data.productions,
+      data.startSymbol,
+    );
+    console.log("ell1 かな？: ", ecfg.is_ell1());
     console.log("Form data:", data);
   };
   const onInvalid = (errors: FieldErrors<ECFG>) => {
