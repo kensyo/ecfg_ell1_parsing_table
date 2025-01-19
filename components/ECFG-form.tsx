@@ -469,7 +469,7 @@ export default function ECFGForm() {
             </TableCaption>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-1/6">Method</TableHead>
+                <TableHead className="w-1/6">Target</TableHead>
                 <TableHead className="w-1/6">Input</TableHead>
                 <TableHead className="w-4/6">Output</TableHead>
               </TableRow>
@@ -477,7 +477,7 @@ export default function ECFGForm() {
             <TableBody>
               {/* Row1: isELL1 (入力なし) */}
               <TableRow>
-                <TableCell>isELL1</TableCell>
+                <TableCell>isELL(1)</TableCell>
                 <TableCell>N/A</TableCell>
                 <TableCell>{String(wasmResults.isELL1)}</TableCell>
               </TableRow>
@@ -529,8 +529,8 @@ export default function ECFGForm() {
                       </TableCaption>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Key (Array of strings)</TableHead>
-                          <TableHead>Value (Array of strings)</TableHead>
+                          <TableHead>RHS</TableHead>
+                          <TableHead>Director Set</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
