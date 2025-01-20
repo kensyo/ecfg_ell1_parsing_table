@@ -76,7 +76,7 @@ function renderBadges(items: string[], asSet: boolean = false) {
             <Badge
               key={`${str}-${i}`}
               variant={is_special ? "default" : "secondary"}
-              className="mr-1"
+              className="mx-1 rounded-md px-1"
             >
               {is_special ? str.slice(1, 2) : str}
             </Badge>

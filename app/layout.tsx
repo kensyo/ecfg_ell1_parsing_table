@@ -49,7 +49,7 @@ export default function RootLayout({
             <ModeToggle />
           </header>
 
-          <div className="mx-auto min-h-[calc(100dvh-128px)] bg-muted/50 p-3">
+          <div className="mx-auto min-h-[calc(100dvh-128px)] bg-muted/40 p-3">
             {children}
           </div>
 
