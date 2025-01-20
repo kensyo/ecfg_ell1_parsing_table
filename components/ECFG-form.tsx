@@ -31,6 +31,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+// 変更点: Badge の import
+import { Badge } from "@/components/ui/badge";
 
 // -------------------------------------
 // 型定義
@@ -60,6 +62,32 @@ type WasmResults = {
   followSet: string[];
   directorEntries: Array<[string[], string[]]>; // ディレクタセット (キー配列, 値配列)
 };
+
+const SPECIAL_STR = ["\\|", "\\(", "\\)", "\\{", "\\}"];
+
+// 変更点: 配列の文字列を Badge で並べるヘルパー関数 (最小限の追加)
+function renderBadges(items: string[], asSet: boolean = false) {
+  return (
+    <>
+      {items.length != 0 ? (
+        items.map((str, i) => {
+          const is_special = SPECIAL_STR.includes(str);
+          return (
+            <Badge
+              key={`${str}-${i}`}
+              variant={is_special ? "default" : "secondary"}
+              className="mr-1"
+            >
+              {is_special ? str.slice(1, 2) : str}
+            </Badge>
+          );
+        })
+      ) : (
+        <p>{asSet ? "∅" : "ε"}</p>
+      )}
+    </>
+  );
+}
 
 export default function ECFGForm() {
   // -------------------------------------
@@ -486,18 +514,30 @@ export default function ECFGForm() {
               <TableRow>
                 <TableCell>Nullable</TableCell>
                 <TableCell>
-                  {formData?.forNullable ? formData.forNullable.join(", ") : ""}
+                  {/* Badge表示: NullableのInput */}
+                  {formData?.forNullable
+                    ? renderBadges(formData.forNullable)
+                    : "empty string"}
                 </TableCell>
-                <TableCell>{String(wasmResults.isNullable)}</TableCell>
+                <TableCell>
+                  {/* boolean を String(...) 化 */}
+                  {String(wasmResults.isNullable)}
+                </TableCell>
               </TableRow>
 
               {/* Row3: forFirstSet */}
               <TableRow>
                 <TableCell>FirstSet</TableCell>
                 <TableCell>
-                  {formData?.forFirstSet ? formData.forFirstSet.join(", ") : ""}
+                  {/* Badge表示: FirstSetのInput */}
+                  {formData?.forFirstSet
+                    ? renderBadges(formData.forFirstSet)
+                    : null}
                 </TableCell>
-                <TableCell>{wasmResults.firstSet.join(", ")}</TableCell>
+                <TableCell>
+                  {/* Badge表示: wasmResults.firstSet */}
+                  {renderBadges(wasmResults.firstSet, true)}
+                </TableCell>
               </TableRow>
 
               {/* Row4: forFollowSet */}
@@ -506,9 +546,12 @@ export default function ECFGForm() {
                 <TableCell>
                   {formData?.forFollowSet === "__none__"
                     ? "(not selected)"
-                    : formData?.forFollowSet}
+                    : renderBadges([formData?.forFollowSet || ""])}
                 </TableCell>
-                <TableCell>{wasmResults.followSet.join(", ")}</TableCell>
+                <TableCell>
+                  {/* Badge表示: wasmResults.followSet */}
+                  {renderBadges(wasmResults.followSet, true)}
+                </TableCell>
               </TableRow>
 
               {/* Row5: directorSet → subtable for the output */}
@@ -517,7 +560,7 @@ export default function ECFGForm() {
                 <TableCell>
                   {formData?.forDirectorSet === "__none__"
                     ? "(not selected)"
-                    : formData?.forDirectorSet}
+                    : renderBadges([formData?.forDirectorSet || ""])}
                 </TableCell>
                 <TableCell>
                   {wasmResults.directorEntries.length === 0 ? (
@@ -530,14 +573,15 @@ export default function ECFGForm() {
                       <TableHeader>
                         <TableRow>
                           <TableHead>RHS</TableHead>
-                          <TableHead>Director Set</TableHead>
+                          <TableHead>Result Set</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {wasmResults.directorEntries.map(([k, v], i) => (
                           <TableRow key={i}>
-                            <TableCell>{k.join(", ")}</TableCell>
-                            <TableCell>{v.join(", ")}</TableCell>
+                            {/* 変更点: k, v を Badge 表示 */}
+                            <TableCell>{renderBadges(k)}</TableCell>
+                            <TableCell>{renderBadges(v, true)}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
