@@ -393,7 +393,6 @@ export default function ECFGForm() {
             <CustomizedInputTags
               {...field}
               value={field.value}
-              placeholder="入力したシンボル群がnullableかどうか"
               onChange={field.onChange}
             />
           )}
@@ -409,7 +408,6 @@ export default function ECFGForm() {
             <CustomizedInputTags
               {...field}
               value={field.value}
-              placeholder="FIRST集合を求めたい記号列"
               onChange={field.onChange}
             />
           )}
