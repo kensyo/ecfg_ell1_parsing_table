@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/table";
 // 変更点: Badge の import
 import { Badge } from "@/components/ui/badge";
+import { Terminal } from "lucide-react";
 
 // -------------------------------------
 // 型定義
@@ -386,9 +387,30 @@ export default function ECFGForm() {
       */}
       <FormItem>
         <Label>forNullable: string[]</Label>
+        {errors.forNullable && (
+          <span className="px-2 text-sm text-red-500">
+            {errors.forNullable.message}
+          </span>
+        )}
         <Controller
           name="forNullable"
           control={control}
+          rules={{
+            validate: (value, { nonTerminals, terminals }) => {
+              for (const symbol of value) {
+                if (
+                  !(
+                    nonTerminals.includes(symbol) ||
+                    terminals.includes(symbol) ||
+                    SPECIAL_STR.includes(symbol)
+                  )
+                ) {
+                  return `"${symbol}" is neither a terminal nor a non terminal.`;
+                }
+              }
+              return true;
+            },
+          }}
           render={({ field }) => (
             <CustomizedInputTags
               {...field}
@@ -401,9 +423,30 @@ export default function ECFGForm() {
 
       <FormItem>
         <Label>forFirstSet: string[]</Label>
+        {errors.forFirstSet && (
+          <span className="px-2 text-sm text-red-500">
+            {errors.forFirstSet.message}
+          </span>
+        )}
         <Controller
           name="forFirstSet"
           control={control}
+          rules={{
+            validate: (value, { nonTerminals, terminals }) => {
+              for (const symbol of value) {
+                if (
+                  !(
+                    nonTerminals.includes(symbol) ||
+                    terminals.includes(symbol) ||
+                    SPECIAL_STR.includes(symbol)
+                  )
+                ) {
+                  return `"${symbol}" is neither a terminal nor a non terminal.`;
+                }
+              }
+              return true;
+            },
+          }}
           render={({ field }) => (
             <CustomizedInputTags
               {...field}
