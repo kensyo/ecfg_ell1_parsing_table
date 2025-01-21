@@ -33,7 +33,6 @@ import {
 } from "@/components/ui/table";
 // 変更点: Badge の import
 import { Badge } from "@/components/ui/badge";
-import { Terminal } from "lucide-react";
 
 // -------------------------------------
 // 型定義
