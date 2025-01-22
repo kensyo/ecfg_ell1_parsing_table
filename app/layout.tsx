@@ -41,7 +41,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <header className="flex h-16 items-center border-b px-6">
+          <header className="flex h-14 items-center border-b px-6">
             <Button asChild variant="ghost" className="text-xl font-bold">
               <Link href="/">ECFG Parsing Table</Link>
             </Button>
@@ -53,7 +53,7 @@ export default function RootLayout({
             {children}
           </div>
 
-          <footer className="sticky top-full flex h-16 items-center justify-center gap-2 border-t px-6">
+          <footer className="sticky top-full flex h-12 items-center justify-center gap-2 border-t px-6">
             <p className="text-sm text-muted-foreground">© kensyo</p>
             <Button size="icon" asChild variant="ghost">
               <a
