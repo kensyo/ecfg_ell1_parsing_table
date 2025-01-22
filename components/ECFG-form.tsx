@@ -69,7 +69,7 @@ const SPECIAL_STR = ["\\|", "\\(", "\\)", "\\{", "\\}"];
 function renderBadges(items: string[], asSet: boolean = false) {
   return (
     <>
-      {items.length != 0 ? (
+      {items.length !== 0 ? (
         items.map((str, i) => {
           const is_special = SPECIAL_STR.includes(str);
           return (
@@ -97,6 +97,8 @@ export default function ECFGForm() {
     control,
     handleSubmit,
     setValue,
+    getValues, // ← 変更点: 現在のフォーム状態を取得
+    reset, // ← 変更点: フォーム値を上書き
     formState: { errors },
   } = useForm<ECFG>({
     defaultValues: {
@@ -129,6 +131,11 @@ export default function ECFGForm() {
   const productions = useWatch({ control, name: "productions" });
   const nonTerminals = useWatch({ control, name: "nonTerminals" }) || [];
 
+  // === 変更点: 複数セーブデータを管理するためのステート
+  const [saveName, setSaveName] = useState(""); // 保存名を入力する欄
+  const [saveList, setSaveList] = useState<string[]>([]); // localStorage にあるセーブ一覧
+  const [selectedLoadName, setSelectedLoadName] = useState(""); // 選択中のロード名
+
   // -------------------------------------
   // productions が変化するたび、NonTerminals & Terminals を再計算
   // -------------------------------------
@@ -156,7 +163,6 @@ export default function ECFGForm() {
       });
     });
 
-    // 除外
     for (const nt of lhsSet) {
       allSymbols.delete(nt);
     }
@@ -172,7 +178,6 @@ export default function ECFGForm() {
   const onValid = (data: ECFG) => {
     setFormData(data);
 
-    // Rust/wasm のコンストラクタ呼び出し
     const ecfg = new ECFGWrapper(
       data.terminals,
       data.nonTerminals,
@@ -180,12 +185,10 @@ export default function ECFGForm() {
       data.startSymbol,
     );
 
-    // 各メソッドを呼び出す
     const isELL1 = ecfg.is_ell1();
     const isNullable = ecfg.calculate_nullable(data.forNullable);
     const firstSetRaw = ecfg.calculate_first_set(data.forFirstSet);
 
-    // forFollowSet, forDirectorSet が "__none__" ならスキップ
     let followSetRaw: string[] = [];
     if (data.forFollowSet !== "__none__") {
       followSetRaw = ecfg.calculate_follow_set(data.forFollowSet);
@@ -196,7 +199,6 @@ export default function ECFGForm() {
       directorMap = ecfg.calculate_director_set(data.forDirectorSet);
     }
 
-    // directorMap を配列化
     let directorEntries: Array<[string[], string[]]> = [];
     if (directorMap && typeof directorMap.entries === "function") {
       directorEntries = Array.from(directorMap.entries());
@@ -208,7 +210,6 @@ export default function ECFGForm() {
     console.log("followSet =>", followSetRaw);
     console.log("directorSet =>", directorMap);
 
-    // ステートにまとめて格納
     setWasmResults({
       isELL1,
       isNullable,
@@ -220,6 +221,57 @@ export default function ECFGForm() {
 
   const onInvalid = (errors: FieldErrors<ECFG>) => {
     console.error("Validation errors:", errors);
+  };
+
+  // -------------------------------------
+  // 変更点: 複数のセーブデータ (localStorage) を扱う機能
+  // -------------------------------------
+  // localStorage に一覧を更新
+  const refreshSaveList = () => {
+    const newList: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key) continue;
+      if (key.startsWith("myECFGData_")) {
+        newList.push(key.replace("myECFGData_", ""));
+      }
+    }
+    setSaveList(newList);
+  };
+
+  useEffect(() => {
+    // 初回マウントで一覧読み込み
+    refreshSaveList();
+  }, []);
+
+  // セーブ
+  const handleSave = () => {
+    if (!saveName) {
+      alert("Please enter a save name.");
+      return;
+    }
+    const data = getValues();
+    localStorage.setItem(`myECFGData_${saveName}`, JSON.stringify(data));
+    alert(`Saved as "${saveName}"`);
+    setSaveName("");
+    refreshSaveList();
+  };
+
+  // ロード
+  const handleLoad = () => {
+    if (!selectedLoadName) {
+      alert("Please select a saved data name from the list.");
+      return;
+    }
+    const raw = localStorage.getItem(`myECFGData_${selectedLoadName}`);
+    if (!raw) {
+      alert(`No data found for "${selectedLoadName}"`);
+      return;
+    }
+    const parsed = JSON.parse(raw) as ECFG;
+    // フォーム値を上書き
+    reset(parsed);
+    alert(`Loaded data: "${selectedLoadName}"`);
   };
 
   return (
@@ -377,13 +429,7 @@ export default function ECFGForm() {
         />
       </FormItem>
 
-      {/*
-        5) Rust/wasm メソッドの引数用
-           - forNullable: string[]
-           - forFirstSet: string[]
-           - forFollowSet: string (Select)
-           - forDirectorSet: string (Select)
-      */}
+      {/* 5) forNullable, forFirstSet, forFollowSet, forDirectorSet */}
       <FormItem>
         <Label>forNullable: string[]</Label>
         {errors.forNullable && (
@@ -512,23 +558,64 @@ export default function ECFGForm() {
         />
       </FormItem>
 
+      {/* Submit ボタン */}
       <Button type="submit" className="mt-4 bg-blue-500 px-4 py-2 text-white">
         Submit
       </Button>
 
       {/*
-        送信後のフォーム全体データ (デバッグ表示)
+        変更点: 複数セーブデータ対応
+        SaveName: テキスト入力
+        Save: ボタン
+        Loadのセレクト + ボタン
       */}
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        {/* セーブ名 (saveName) 入力 */}
+        <div>
+          <Label htmlFor="saveName">Save Name</Label>
+          <input
+            id="saveName"
+            className="ml-2 border px-2 py-1"
+            placeholder="myGrammar1"
+            value={saveName}
+            onChange={(e) => setSaveName(e.target.value)}
+          />
+        </div>
+        {/* セーブボタン */}
+        <Button type="button" onClick={handleSave} className="bg-gray-500">
+          Save
+        </Button>
+
+        {/* ロードセレクト */}
+        <div>
+          <Label>Load data:</Label>
+          <select
+            className="ml-2 border px-2 py-1"
+            value={selectedLoadName}
+            onChange={(e) => setSelectedLoadName(e.target.value)}
+          >
+            <option value="">(choose a save)</option>
+            {saveList.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </div>
+        {/* ロードボタン */}
+        <Button type="button" onClick={handleLoad} className="bg-gray-500">
+          Load
+        </Button>
+      </div>
+
+      {/* 送信後のフォームデータ */}
       {formData && (
         <pre className="mt-4 rounded border p-2">
           {JSON.stringify(formData, null, 2)}
         </pre>
       )}
 
-      {/*
-        Rust/wasm メソッド結果の表示
-        (入力値もあわせて1つのテーブルで見られる形に)
-      */}
+      {/* Rust/wasm メソッド結果の表示 */}
       {wasmResults && (
         <div className="mt-4 space-y-4 rounded border p-2">
           <Table>
@@ -554,28 +641,22 @@ export default function ECFGForm() {
               <TableRow>
                 <TableCell>Nullable</TableCell>
                 <TableCell>
-                  {/* Badge表示: NullableのInput */}
                   {formData?.forNullable
                     ? renderBadges(formData.forNullable)
                     : "empty string"}
                 </TableCell>
-                <TableCell>
-                  {/* boolean を String(...) 化 */}
-                  {String(wasmResults.isNullable)}
-                </TableCell>
+                <TableCell>{String(wasmResults.isNullable)}</TableCell>
               </TableRow>
 
               {/* Row3: forFirstSet */}
               <TableRow>
                 <TableCell>FirstSet</TableCell>
                 <TableCell>
-                  {/* Badge表示: FirstSetのInput */}
                   {formData?.forFirstSet
                     ? renderBadges(formData.forFirstSet)
                     : null}
                 </TableCell>
                 <TableCell>
-                  {/* Badge表示: wasmResults.firstSet */}
                   {renderBadges(wasmResults.firstSet, true)}
                 </TableCell>
               </TableRow>
@@ -589,7 +670,6 @@ export default function ECFGForm() {
                     : renderBadges([formData?.forFollowSet || ""])}
                 </TableCell>
                 <TableCell>
-                  {/* Badge表示: wasmResults.followSet */}
                   {renderBadges(wasmResults.followSet, true)}
                 </TableCell>
               </TableRow>
@@ -619,7 +699,6 @@ export default function ECFGForm() {
                       <TableBody>
                         {wasmResults.directorEntries.map(([k, v], i) => (
                           <TableRow key={i}>
-                            {/* 変更点: k, v を Badge 表示 */}
                             <TableCell>{renderBadges(k)}</TableCell>
                             <TableCell>{renderBadges(v, true)}</TableCell>
                           </TableRow>
