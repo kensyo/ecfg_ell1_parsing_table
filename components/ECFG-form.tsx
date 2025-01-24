@@ -97,8 +97,9 @@ export default function ECFGForm() {
     control,
     handleSubmit,
     setValue,
-    getValues, // ← 変更点: 現在のフォーム状態を取得
-    reset, // ← 変更点: フォーム値を上書き
+    getValues,
+    reset,
+    resetField, // ← 部分リセット用
     formState: { errors },
   } = useForm<ECFG>({
     defaultValues: {
@@ -224,9 +225,8 @@ export default function ECFGForm() {
   };
 
   // -------------------------------------
-  // 変更点: 複数のセーブデータ (localStorage) を扱う機能
-  // -------------------------------------
   // localStorage に一覧を更新
+  // -------------------------------------
   const refreshSaveList = () => {
     const newList: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
@@ -269,8 +269,25 @@ export default function ECFGForm() {
       return;
     }
     const parsed = JSON.parse(raw) as ECFG;
-    // フォーム値を上書き
-    reset(parsed);
+
+    // ★ 1) まず "大部分" を reset
+    //    ただし Select フィールド(forFollowSet,forDirectorSet,startSymbol)なども
+    //    一旦初期値に戻す(= ""), あとで個別に上書きする。
+    reset({
+      ...parsed,
+      startSymbol: "", // 後で改めて setValue()
+      forFollowSet: "__none__",
+      forDirectorSet: "__none__",
+    });
+
+    // ★ 2) 再レンダリング後に部分的に resetField() / setValue() で上書き
+    //    これで Select が watch 依存情報を再取得し、UIが同期される
+    setTimeout(() => {
+      resetField("startSymbol", { defaultValue: parsed.startSymbol });
+      resetField("forFollowSet", { defaultValue: parsed.forFollowSet });
+      resetField("forDirectorSet", { defaultValue: parsed.forDirectorSet });
+    }, 0);
+
     alert(`Loaded data: "${selectedLoadName}"`);
   };
 
@@ -410,10 +427,7 @@ export default function ECFGForm() {
           }}
           control={control}
           render={({ field }) => (
-            <Select
-              value={field.value}
-              onValueChange={(value) => field.onChange(value)}
-            >
+            <Select value={field.value} onValueChange={field.onChange}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Choose NonTerminal" />
               </SelectTrigger>
@@ -508,10 +522,7 @@ export default function ECFGForm() {
           name="forFollowSet"
           control={control}
           render={({ field }) => (
-            <Select
-              value={field.value}
-              onValueChange={(value) => field.onChange(value)}
-            >
+            <Select value={field.value} onValueChange={field.onChange}>
               <SelectTrigger className="w-[220px]">
                 <SelectValue placeholder="(not selected)" />
               </SelectTrigger>
@@ -536,10 +547,7 @@ export default function ECFGForm() {
           name="forDirectorSet"
           control={control}
           render={({ field }) => (
-            <Select
-              value={field.value}
-              onValueChange={(value) => field.onChange(value)}
-            >
+            <Select value={field.value} onValueChange={field.onChange}>
               <SelectTrigger className="w-[220px]">
                 <SelectValue placeholder="(not selected)" />
               </SelectTrigger>
@@ -564,10 +572,7 @@ export default function ECFGForm() {
       </Button>
 
       {/*
-        変更点: 複数セーブデータ対応
-        SaveName: テキスト入力
-        Save: ボタン
-        Loadのセレクト + ボタン
+        複数セーブデータ対応
       */}
       <div className="mt-2 flex flex-wrap items-center gap-2">
         {/* セーブ名 (saveName) 入力 */}
