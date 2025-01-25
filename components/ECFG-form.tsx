@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
-  useForm,
   FieldErrors,
   useFieldArray,
   Controller,
   useWatch,
+  useFormContext,
 } from "react-hook-form";
 import { FormItem } from "./ui/form";
 import { Label } from "./ui/label";
@@ -21,7 +21,6 @@ import {
 } from "./ui/select";
 import { ECFGWrapper } from "@/wasm_backend/pkg/wasm_backend";
 
-// shadcn/ui のテーブルコンポーネント
 import {
   Table,
   TableBody,
@@ -31,7 +30,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-// 変更点: Badge の import
 import { Badge } from "@/components/ui/badge";
 
 // -------------------------------------
@@ -54,7 +52,6 @@ type ECFG = {
   forDirectorSet: string; // ← 同上
 };
 
-// Rust/wasm のメソッド結果をまとめて格納する型
 type WasmResults = {
   isELL1: boolean;
   isNullable: boolean;
@@ -63,9 +60,18 @@ type WasmResults = {
   directorEntries: Array<[string[], string[]]>; // ディレクタセット (キー配列, 値配列)
 };
 
+// セーブデータ: { name, updatedAt, data }
+interface SaveData {
+  name: string;
+  updatedAt: number;
+  data: ECFG;
+}
+
 const SPECIAL_STR = ["\\|", "\\(", "\\)", "\\{", "\\}"];
 
-// 変更点: 配列の文字列を Badge で並べるヘルパー関数 (最小限の追加)
+/**
+ * Badge表示のためのヘルパー
+ */
 function renderBadges(items: string[], asSet: boolean = false) {
   return (
     <>
@@ -99,82 +105,67 @@ export default function ECFGForm() {
     setValue,
     getValues,
     reset,
-    resetField, // ← 部分リセット用
+    resetField,
     formState: { errors },
-  } = useForm<ECFG>({
-    defaultValues: {
-      terminals: [],
-      nonTerminals: [],
-      productions: [{ lhs: "", rhs: [] }],
-      startSymbol: "",
-      forNullable: [],
-      forFirstSet: [],
-      forFollowSet: "__none__",
-      forDirectorSet: "__none__",
-    },
-  });
-  const [formData, setFormData] = useState<ECFG | null>(null);
+  } = useFormContext<ECFG>();
 
-  // Rust/wasm メソッドの結果をまとめるステート
+  const [formData, setFormData] = useState<ECFG | null>(null);
   const [wasmResults, setWasmResults] = useState<WasmResults | null>(null);
 
-  // -------------------------------------
-  // Field Array: productions
-  // -------------------------------------
+  // Field Array
   const { fields, append, remove } = useFieldArray({
     name: "productions",
     control,
   });
 
-  // -------------------------------------
-  // useWatchをコンポーネントのトップレベルで呼び出す
-  // -------------------------------------
+  // useWatch
   const productions = useWatch({ control, name: "productions" });
   const nonTerminals = useWatch({ control, name: "nonTerminals" }) || [];
 
-  // === 変更点: 複数セーブデータを管理するためのステート
-  const [saveName, setSaveName] = useState(""); // 保存名を入力する欄
-  const [saveList, setSaveList] = useState<string[]>([]); // localStorage にあるセーブ一覧
-  const [selectedLoadName, setSelectedLoadName] = useState(""); // 選択中のロード名
+  // セーブデータ一覧を表示用
+  interface SaveItem {
+    key: string; // localStorage のキー
+    name: string; // ユーザーが指定した名前
+    updatedAt: number;
+  }
+  const [saveList, setSaveList] = useState<SaveItem[]>([]);
+
+  // UI: セーブ名入力
+  const [saveName, setSaveName] = useState("");
+
+  // UI: ロード/削除用に選択中のキー
+  const [selectedKey, setSelectedKey] = useState("");
+
+  // 現在ロード中のキー & 名前 → 上書きセーブに使う
+  // 要求仕様: 「ロード中なら、キーと名前を表示しておく」
+  const [currentLoadedKey, setCurrentLoadedKey] = useState("");
+  const [currentLoadedName, setCurrentLoadedName] = useState("");
 
   // -------------------------------------
-  // productions が変化するたび、NonTerminals & Terminals を再計算
+  // productions 変化時に NonTerminals & Terminals を再計算
   // -------------------------------------
   useEffect(() => {
     if (!productions) return;
-
-    // === NonTerminals: 全LHS を収集 ===
     const lhsSet = new Set<string>();
-    productions.forEach((prod) => {
-      if (prod.lhs) {
-        lhsSet.add(prod.lhs);
-      }
+    productions.forEach((p) => {
+      if (p.lhs) lhsSet.add(p.lhs);
     });
     setValue("nonTerminals", Array.from(lhsSet));
 
-    // === Terminals: 全シンボル( LHS + RHS ) から NonTerminals + 特殊記号 を除外
     const specialTokens = new Set(["\\{", "\\}", "\\|", "\\(", "\\)"]);
     const allSymbols = new Set<string>();
-    productions.forEach((prod) => {
-      if (prod.lhs) {
-        allSymbols.add(prod.lhs);
-      }
-      prod.rhs.forEach((sym) => {
-        allSymbols.add(sym);
-      });
+    productions.forEach((p) => {
+      if (p.lhs) allSymbols.add(p.lhs);
+      p.rhs.forEach((sym) => allSymbols.add(sym));
     });
 
-    for (const nt of lhsSet) {
-      allSymbols.delete(nt);
-    }
-    for (const st of specialTokens) {
-      allSymbols.delete(st);
-    }
+    for (const nt of lhsSet) allSymbols.delete(nt);
+    for (const st of specialTokens) allSymbols.delete(st);
     setValue("terminals", Array.from(allSymbols));
   }, [productions, setValue]);
 
   // -------------------------------------
-  // Submit handlers
+  // フォーム送信
   // -------------------------------------
   const onValid = (data: ECFG) => {
     setFormData(data);
@@ -185,7 +176,6 @@ export default function ECFGForm() {
       data.productions,
       data.startSymbol,
     );
-
     const isELL1 = ecfg.is_ell1();
     const isNullable = ecfg.calculate_nullable(data.forNullable);
     const firstSetRaw = ecfg.calculate_first_set(data.forFirstSet);
@@ -205,11 +195,13 @@ export default function ECFGForm() {
       directorEntries = Array.from(directorMap.entries());
     }
 
-    console.log("isELL1 =>", isELL1);
-    console.log("isNullable =>", isNullable);
-    console.log("firstSet =>", firstSetRaw);
-    console.log("followSet =>", followSetRaw);
-    console.log("directorSet =>", directorMap);
+    console.log({
+      isELL1,
+      isNullable,
+      firstSetRaw,
+      followSetRaw,
+      directorMap,
+    });
 
     setWasmResults({
       isELL1,
@@ -219,80 +211,193 @@ export default function ECFGForm() {
       directorEntries,
     });
   };
-
-  const onInvalid = (errors: FieldErrors<ECFG>) => {
-    console.error("Validation errors:", errors);
+  const onInvalid = (errs: FieldErrors<ECFG>) => {
+    console.error("Validation errors:", errs);
   };
 
   // -------------------------------------
-  // localStorage に一覧を更新
+  // localStorage からセーブ一覧を読み込み & 更新
   // -------------------------------------
-  const refreshSaveList = () => {
-    const newList: string[] = [];
+  const refreshSaveList = useCallback(() => {
+    const arr: SaveItem[] = [];
     for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (!key) continue;
-      if (key.startsWith("myECFGData_")) {
-        newList.push(key.replace("myECFGData_", ""));
+      const k = localStorage.key(i);
+      if (!k) continue;
+      if (k.startsWith("myECFGData_")) {
+        const raw = localStorage.getItem(k);
+        if (!raw) continue;
+        try {
+          const parsed = JSON.parse(raw) as SaveData;
+          arr.push({
+            key: k,
+            name: parsed.name,
+            updatedAt: parsed.updatedAt,
+          });
+        } catch (e) {
+          console.warn("Failed to parse storage item", k, e);
+        }
       }
     }
-    setSaveList(newList);
-  };
-
-  useEffect(() => {
-    // 初回マウントで一覧読み込み
-    refreshSaveList();
+    // updatedAt 降順でソート
+    arr.sort((a, b) => b.updatedAt - a.updatedAt);
+    setSaveList(arr);
   }, []);
 
-  // セーブ
-  const handleSave = () => {
+  useEffect(() => {
+    refreshSaveList();
+  }, [refreshSaveList]);
+
+  // -------------------------------------
+  // 新規セーブ
+  // -------------------------------------
+  const handleNewSave = () => {
     if (!saveName) {
-      alert("Please enter a save name.");
+      alert("セーブ名を入力してください。");
       return;
     }
     const data = getValues();
-    localStorage.setItem(`myECFGData_${saveName}`, JSON.stringify(data));
-    alert(`Saved as "${saveName}"`);
+    const now = Date.now();
+    // 新規キー (同名でも別キー)
+    const newKey = `myECFGData_${now}`;
+    const obj: SaveData = {
+      name: saveName,
+      updatedAt: now,
+      data,
+    };
+    localStorage.setItem(newKey, JSON.stringify(obj));
+    alert(`新規セーブ: "${saveName}" (key=${newKey})`);
     setSaveName("");
+
+    // ★ 新規セーブ後、そのデータをロード中にする
+    setCurrentLoadedKey(newKey);
+    setCurrentLoadedName(saveName);
+
     refreshSaveList();
   };
 
-  // ロード
-  const handleLoad = () => {
-    if (!selectedLoadName) {
-      alert("Please select a saved data name from the list.");
+  // -------------------------------------
+  // 上書きセーブ (ロード中のキーがある場合のみ)
+  // -------------------------------------
+  const handleOverwriteSave = () => {
+    if (!currentLoadedKey) {
+      alert("ロード中のセーブデータがありません (上書き不可)。");
       return;
     }
-    const raw = localStorage.getItem(`myECFGData_${selectedLoadName}`);
+    const raw = localStorage.getItem(currentLoadedKey);
     if (!raw) {
-      alert(`No data found for "${selectedLoadName}"`);
+      alert("ロード中のキーが見つかりません。削除された可能性があります。");
+      setCurrentLoadedKey("");
+      setCurrentLoadedName("");
+      refreshSaveList();
       return;
     }
-    const parsed = JSON.parse(raw) as ECFG;
+    try {
+      const oldObj = JSON.parse(raw) as SaveData;
+      const newData = getValues();
+      const now = Date.now();
+      const updated: SaveData = {
+        name: oldObj.name, // セーブ名は変えない
+        updatedAt: now,
+        data: newData,
+      };
+      localStorage.setItem(currentLoadedKey, JSON.stringify(updated));
+      alert(`上書きしました: ${oldObj.name} (key=${currentLoadedKey})`);
 
-    // ★ 1) まず "大部分" を reset
-    //    ただし Select フィールド(forFollowSet,forDirectorSet,startSymbol)なども
-    //    一旦初期値に戻す(= ""), あとで個別に上書きする。
+      // 更新時刻が変わったので一覧再読み込み
+      refreshSaveList();
+    } catch (e) {
+      alert("上書きに失敗しました。パースエラー?");
+      console.error(e);
+    }
+  };
+
+  // -------------------------------------
+  // 新規データ (フォーム初期化 & ロード状態を解除)
+  // -------------------------------------
+  const handleNewData = () => {
     reset({
-      ...parsed,
-      startSymbol: "", // 後で改めて setValue()
+      terminals: [],
+      nonTerminals: [],
+      productions: [{ lhs: "", rhs: [] }],
+      startSymbol: "",
+      forNullable: [],
+      forFirstSet: [],
       forFollowSet: "__none__",
       forDirectorSet: "__none__",
     });
+    setCurrentLoadedKey("");
+    setCurrentLoadedName("");
+  };
 
-    // ★ 2) 再レンダリング後に部分的に resetField() / setValue() で上書き
-    //    これで Select が watch 依存情報を再取得し、UIが同期される
-    setTimeout(() => {
-      resetField("startSymbol", { defaultValue: parsed.startSymbol });
-      resetField("forFollowSet", { defaultValue: parsed.forFollowSet });
-      resetField("forDirectorSet", { defaultValue: parsed.forDirectorSet });
-    }, 0);
+  // -------------------------------------
+  // ロード
+  // -------------------------------------
+  const handleLoad = () => {
+    if (!selectedKey) {
+      alert("ロードするセーブを選択してください。");
+      return;
+    }
+    const raw = localStorage.getItem(selectedKey);
+    if (!raw) {
+      alert("選択されたキーが見つかりません。削除された可能性があります。");
+      return;
+    }
+    try {
+      const parsed = JSON.parse(raw) as SaveData;
+      const ecfgData = parsed.data;
 
-    alert(`Loaded data: "${selectedLoadName}"`);
+      // 同様に、Select系は一度初期化してから リセット
+      reset({
+        ...ecfgData,
+        startSymbol: "",
+        forFollowSet: "__none__",
+        forDirectorSet: "__none__",
+      });
+      setTimeout(() => {
+        resetField("startSymbol", { defaultValue: ecfgData.startSymbol });
+        resetField("forFollowSet", { defaultValue: ecfgData.forFollowSet });
+        resetField("forDirectorSet", { defaultValue: ecfgData.forDirectorSet });
+      }, 0);
+
+      // ロード状態
+      setCurrentLoadedKey(selectedKey);
+      setCurrentLoadedName(parsed.name);
+      alert(`ロードしました: ${parsed.name} (key=${selectedKey})`);
+    } catch (e) {
+      alert("ロード失敗 (JSONパースエラー?)");
+      console.error(e);
+    }
+  };
+
+  // -------------------------------------
+  // 削除
+  // -------------------------------------
+  const handleDelete = () => {
+    if (!selectedKey) {
+      alert("削除するセーブを選択してください。");
+      return;
+    }
+    localStorage.removeItem(selectedKey);
+    alert(`削除しました: key=${selectedKey}`);
+    // もしロード中のデータを消したらロード状態をクリア
+    if (selectedKey === currentLoadedKey) {
+      setCurrentLoadedKey("");
+      setCurrentLoadedName("");
+    }
+    setSelectedKey("");
+    refreshSaveList();
   };
 
   return (
     <form onSubmit={handleSubmit(onValid, onInvalid)} className="space-y-3">
+      {/* ★ 現在ロード中のデータ表示 */}
+      {currentLoadedKey && (
+        <p className="rounded bg-muted px-2 py-1 text-sm text-muted-foreground">
+          現在ロード中: <strong>{currentLoadedName}</strong> (key=
+          {currentLoadedKey})
+        </p>
+      )}
+
       {/* 1) NonTerminal symbols (auto-generated by productions) */}
       <FormItem>
         <Label>NonTerminal symbols (auto-generated by productions)</Label>
@@ -336,7 +441,7 @@ export default function ECFGForm() {
         <Label>Productions</Label>
         {errors.productions && (
           <span className="px-2 text-sm text-red-500">
-            {"The symbol in LHS must not be empty."}
+            The symbol in LHS must not be empty.
           </span>
         )}
         {fields.map((fieldItem, index) => (
@@ -357,7 +462,6 @@ export default function ECFGForm() {
                   <CustomizedInputTags
                     maxTags={1}
                     {...field}
-                    // LHS は単一タグなので配列にして渡す
                     value={field.value ? [field.value] : []}
                     onChange={(newValue) => {
                       if (typeof newValue === "function") {
@@ -412,7 +516,7 @@ export default function ECFGForm() {
         </Button>
       </FormItem>
 
-      {/* 4) Start symbol (NonTerminals から選択) */}
+      {/* 4) Start symbol */}
       <FormItem>
         <Label>Start symbol</Label>
         {errors.startSymbol && (
@@ -455,8 +559,8 @@ export default function ECFGForm() {
           name="forNullable"
           control={control}
           rules={{
-            validate: (value, { nonTerminals, terminals }) => {
-              for (const symbol of value) {
+            validate: (vals, { nonTerminals, terminals }) => {
+              for (const symbol of vals) {
                 if (
                   !(
                     nonTerminals.includes(symbol) ||
@@ -491,8 +595,8 @@ export default function ECFGForm() {
           name="forFirstSet"
           control={control}
           rules={{
-            validate: (value, { nonTerminals, terminals }) => {
-              for (const symbol of value) {
+            validate: (vals, { nonTerminals, terminals }) => {
+              for (const symbol of vals) {
                 if (
                   !(
                     nonTerminals.includes(symbol) ||
@@ -566,61 +670,82 @@ export default function ECFGForm() {
         />
       </FormItem>
 
-      {/* Submit ボタン */}
+      {/* Submit */}
       <Button type="submit" className="mt-4 bg-blue-500 px-4 py-2 text-white">
         Submit
       </Button>
 
       {/*
-        複数セーブデータ対応
+        3 つのボタン:
+        1) 新規セーブ
+        2) 上書きセーブ
+        3) 新規データ
       */}
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        {/* セーブ名 (saveName) 入力 */}
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        {/* 新規セーブ */}
         <div>
-          <Label htmlFor="saveName">Save Name</Label>
+          <Label>Save Name</Label>
           <input
-            id="saveName"
             className="ml-2 border px-2 py-1"
-            placeholder="myGrammar1"
+            placeholder="例: MyGrammar"
             value={saveName}
             onChange={(e) => setSaveName(e.target.value)}
           />
         </div>
-        {/* セーブボタン */}
-        <Button type="button" onClick={handleSave} className="bg-gray-500">
-          Save
+        <Button type="button" onClick={handleNewSave} className="bg-gray-500">
+          新規セーブ
         </Button>
 
-        {/* ロードセレクト */}
-        <div>
-          <Label>Load data:</Label>
-          <select
-            className="ml-2 border px-2 py-1"
-            value={selectedLoadName}
-            onChange={(e) => setSelectedLoadName(e.target.value)}
-          >
-            <option value="">(choose a save)</option>
-            {saveList.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
-        </div>
-        {/* ロードボタン */}
-        <Button type="button" onClick={handleLoad} className="bg-gray-500">
-          Load
+        {/* 上書きセーブ (ロード中のみ押せる) */}
+        <Button
+          type="button"
+          onClick={handleOverwriteSave}
+          disabled={!currentLoadedKey}
+          className="bg-yellow-500 text-black"
+        >
+          上書きセーブ
+        </Button>
+
+        {/* 新規データ */}
+        <Button type="button" onClick={handleNewData} className="bg-gray-300">
+          新規データ
         </Button>
       </div>
 
-      {/* 送信後のフォームデータ */}
+      {/*
+        ロード/削除
+        リストは updatedAt 降順
+      */}
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <Label>Load / Delete:</Label>
+        <select
+          className="border px-2 py-1"
+          value={selectedKey}
+          onChange={(e) => setSelectedKey(e.target.value)}
+        >
+          <option value="">(choose a save)</option>
+          {saveList.map((item) => (
+            <option key={item.key} value={item.key}>
+              {item.name} (updated {new Date(item.updatedAt).toLocaleString()})
+            </option>
+          ))}
+        </select>
+        <Button type="button" onClick={handleLoad} className="bg-blue-300">
+          Load
+        </Button>
+        <Button type="button" onClick={handleDelete} className="bg-red-400">
+          Delete
+        </Button>
+      </div>
+
+      {/* 送信後のフォームデータ (デバッグ表示) */}
       {formData && (
         <pre className="mt-4 rounded border p-2">
           {JSON.stringify(formData, null, 2)}
         </pre>
       )}
 
-      {/* Rust/wasm メソッド結果の表示 */}
+      {/* Rust/wasm結果 */}
       {wasmResults && (
         <div className="mt-4 space-y-4 rounded border p-2">
           <Table>
@@ -635,7 +760,7 @@ export default function ECFGForm() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {/* Row1: isELL1 (入力なし) */}
+              {/* Row1: isELL1 */}
               <TableRow>
                 <TableCell>isELL(1)</TableCell>
                 <TableCell>N/A</TableCell>
@@ -679,7 +804,7 @@ export default function ECFGForm() {
                 </TableCell>
               </TableRow>
 
-              {/* Row5: directorSet → subtable for the output */}
+              {/* Row5: directorSet */}
               <TableRow>
                 <TableCell>DirectorSet</TableCell>
                 <TableCell>
