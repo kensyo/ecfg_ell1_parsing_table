@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Save, SaveAll } from "lucide-react";
+import { EllipsisVertical, Plus, Save, SaveAll } from "lucide-react";
 
 import {
   Sidebar,
@@ -14,66 +14,104 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { Button } from "./ui/button";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ECFG } from "./core-contents";
 import { useFormContext } from "react-hook-form";
+import { cn } from "@/lib/utils";
+
+type SaveItem = {
+  key: string; // localStorage のキー
+  name: string; // ユーザーが指定した名前
+  updatedAt: number;
+};
+
+type SaveData = {
+  name: string;
+  updatedAt: number;
+  data: ECFG;
+};
 
 export function AppSidebar() {
-  const { reset, resetField } = useFormContext<ECFG>();
+  const { resetField, reset } = useFormContext<ECFG>();
 
-  const [saveList, setSaveList] = useState<string[]>([]); // localStorage にあるセーブ一覧
-  const [selectedLoadName, setSelectedLoadName] = useState(""); // 選択中のロード名
+  // UI: ロード/削除用に選択中のキー
+  const [selectedKey, setSelectedKey] = useState("");
 
-  const refreshSaveList = () => {
-    const newList: string[] = [];
+  // 現在ロード中のキー & 名前 → 上書きセーブに使う
+  // 要求仕様: 「ロード中なら、キーと名前を表示しておく」
+  const [currentLoadedKey, setCurrentLoadedKey] = useState("");
+  const [currentLoadedName, setCurrentLoadedName] = useState("");
+
+  // -------------------------------------
+  // localStorage からセーブ一覧を読み込み & 更新
+  // -------------------------------------
+  const [saveList, setSaveList] = useState<SaveItem[]>([]);
+
+  const refreshSaveList = useCallback(() => {
+    const arr: SaveItem[] = [];
     for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (!key) continue;
-      if (key.startsWith("myECFGData_")) {
-        newList.push(key.replace("myECFGData_", ""));
+      const k = localStorage.key(i);
+      if (!k) continue;
+      if (k.startsWith("myECFGData_")) {
+        const raw = localStorage.getItem(k);
+        if (!raw) continue;
+        try {
+          const parsed = JSON.parse(raw) as SaveData;
+          arr.push({
+            key: k,
+            name: parsed.name,
+            updatedAt: parsed.updatedAt,
+          });
+        } catch (e) {
+          console.warn("Failed to parse storage item", k, e);
+        }
       }
     }
-    setSaveList(newList);
-  };
-
-  useEffect(() => {
-    // 初回マウントで一覧読み込み
-    refreshSaveList();
+    // updatedAt 降順でソート
+    arr.sort((a, b) => b.updatedAt - a.updatedAt);
+    setSaveList(arr);
   }, []);
 
-  const handleLoad = (name: string) => {
-    if (!name) {
-      alert("Please select a saved data name from the list.");
+  useEffect(() => {
+    refreshSaveList();
+  }, [refreshSaveList]);
+
+  const handleLoad = (key: string) => {
+    if (!key) {
+      alert("ロードするセーブを選択してください。");
       return;
     }
-    const raw = localStorage.getItem(`myECFGData_${name}`);
+    const raw = localStorage.getItem(key);
     if (!raw) {
-      alert(`No data found for "${name}"`);
+      alert("選択されたキーが見つかりません。削除された可能性があります。");
       return;
     }
-    const parsed = JSON.parse(raw) as ECFG;
+    try {
+      const parsed = JSON.parse(raw) as SaveData;
+      const ecfgData = parsed.data;
 
-    // ★ 1) まず "大部分" を reset
-    //    ただし Select フィールド(forFollowSet,forDirectorSet,startSymbol)なども
-    //    一旦初期値に戻す(= ""), あとで個別に上書きする。
-    reset({
-      ...parsed,
-      startSymbol: "", // 後で改めて setValue()
-      forFollowSet: "__none__",
-      forDirectorSet: "__none__",
-    });
+      // 同様に、Select系は一度初期化してから リセット
+      reset({
+        ...ecfgData,
+        startSymbol: "",
+        forFollowSet: "__none__",
+        forDirectorSet: "__none__",
+      });
+      setTimeout(() => {
+        resetField("startSymbol", { defaultValue: ecfgData.startSymbol });
+        resetField("forFollowSet", { defaultValue: ecfgData.forFollowSet });
+        resetField("forDirectorSet", { defaultValue: ecfgData.forDirectorSet });
+      }, 0);
 
-    // ★ 2) 再レンダリング後に部分的に resetField() / setValue() で上書き
-    //    これで Select が watch 依存情報を再取得し、UIが同期される
-    setTimeout(() => {
-      resetField("startSymbol", { defaultValue: parsed.startSymbol });
-      resetField("forFollowSet", { defaultValue: parsed.forFollowSet });
-      resetField("forDirectorSet", { defaultValue: parsed.forDirectorSet });
-    }, 0);
-
-    alert(`Loaded data: "${name}"`);
+      // ロード状態
+      setCurrentLoadedKey(key);
+      setCurrentLoadedName(parsed.name);
+      alert(`ロードしました: ${parsed.name} (key=${key})`);
+    } catch (e) {
+      alert("ロード失敗 (JSONパースエラー?)");
+      console.error(e);
+    }
   };
-
   return (
     <Sidebar>
       <SidebarHeader>
@@ -116,17 +154,43 @@ export function AppSidebar() {
           <SidebarGroupLabel>Saved Data</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {saveList.map((name) => (
-                <SidebarMenuItem key={name}>
+              {saveList.map((item) => (
+                <SidebarMenuItem key={item.key}>
+                  {/* <div className="hover:bg-white has-[p:hover]:bg-blue-500"> */}
+                  {/*   <p>ff</p> */}
+                  {/*   <p className="hover:bg-red-500"> */}
+                  {/*     hoge */}
+                  {/*   </p> */}
+                  {/* </div> */}
+                  {/* <div className="border hover:bg-blue-500 has-[*:hover]:bg-white"> */}
+                  {/*   <p className="">ff</p> */}
+                  {/*   <p className="hover:bg-red-500">hoge</p> */}
+                  {/* </div> */}
                   <SidebarMenuButton
+                    className={cn(
+                      currentLoadedKey == item.key && "bg-sidebar-accent",
+                      "has-[button:hover]:bg-transparent",
+                    )}
                     asChild
                     onClick={(_e) => {
-                      handleLoad(name);
-                      setSelectedLoadName(name);
+                      handleLoad(item.key);
+                      setSelectedKey(item.key);
                     }}
                   >
-                    {/* <item.icon /> */}
-                    <span>{name}</span>
+                    <div className="flex">
+                      <span className="flex-1">{item.name}</span>
+                      <Button
+                        className="rounded-full"
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          alert("chin");
+                        }}
+                      >
+                        <EllipsisVertical size="20" />
+                      </Button>
+                    </div>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
