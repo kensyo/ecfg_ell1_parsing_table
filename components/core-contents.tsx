@@ -45,7 +45,7 @@ export default function CoreContents({
 
   return (
     <FormProvider {...methods}>
-      <SidebarProvider>
+      <SidebarProvider defaultOpen={true}>
         <AppSidebar />
         <div className="flex-1">
           <header className="flex h-14 items-center border-b px-6">

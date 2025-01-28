@@ -1,6 +1,6 @@
 "use client";
 
-import { EllipsisVertical, Plus, Save, SaveAll } from "lucide-react";
+import { ArrowUpFromLine, BookOpen, CircleX, EllipsisVertical, Plus, Save, SaveAll } from "lucide-react";
 
 import {
   Sidebar,
@@ -18,6 +18,14 @@ import { useCallback, useEffect, useState } from "react";
 import { ECFG } from "./core-contents";
 import { useFormContext } from "react-hook-form";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuItem,
+} from "./ui/dropdown-menu";
 
 type SaveItem = {
   key: string; // localStorage のキー
@@ -112,6 +120,26 @@ export function AppSidebar() {
       console.error(e);
     }
   };
+
+  // -------------------------------------
+  // 削除
+  // -------------------------------------
+  const handleDelete = (key: string) => {
+    if (!key) {
+      alert("削除するセーブを選択してください。");
+      return;
+    }
+    localStorage.removeItem(key);
+    alert(`削除しました: key=${key}`);
+    // もしロード中のデータを消したらロード状態をクリア
+    if (key === currentLoadedKey) {
+      setCurrentLoadedKey("");
+      setCurrentLoadedName("");
+    }
+    setSelectedKey("");
+    refreshSaveList();
+  };
+
   return (
     <Sidebar>
       <SidebarHeader>
@@ -177,19 +205,41 @@ export function AppSidebar() {
                       setSelectedKey(item.key);
                     }}
                   >
-                    <div className="flex">
+                    <div className="flex" tabIndex={0}>
                       <span className="flex-1">{item.name}</span>
-                      <Button
-                        className="rounded-full"
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          alert("chin");
-                        }}
-                      >
-                        <EllipsisVertical size="20" />
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            className="rounded-full border-none"
+                            variant="ghost"
+                            size="icon"
+                          >
+                            <EllipsisVertical size="20" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleLoad(item.key);
+                              setSelectedKey(item.key);
+                            }}
+                          >
+                            <BookOpen />
+                            <span>Load</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(item.key);
+                              setSelectedKey(item.key);
+                            }}
+                          >
+                            <CircleX />
+                            <span>Delete</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
