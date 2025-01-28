@@ -1,6 +1,23 @@
 "use client";
 
-import { ArrowUpFromLine, BookOpen, CircleX, EllipsisVertical, Plus, Save, SaveAll } from "lucide-react";
+import {
+  BookOpen,
+  CircleX,
+  EllipsisVertical,
+  Plus,
+  Save,
+  SaveAll,
+} from "lucide-react";
+
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 import {
   Sidebar,
@@ -22,10 +39,11 @@ import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuItem,
 } from "./ui/dropdown-menu";
+import { Label } from "./ui/label";
+import { Input } from "./ui/input";
+import { DialogClose } from "@radix-ui/react-dialog";
 
 type SaveItem = {
   key: string; // localStorage のキー
@@ -40,7 +58,10 @@ type SaveData = {
 };
 
 export function AppSidebar() {
-  const { resetField, reset } = useFormContext<ECFG>();
+  const { resetField, reset, getValues } = useFormContext<ECFG>();
+
+  // UI: セーブ名入力
+  const [saveName, setSaveName] = useState("");
 
   // UI: ロード/削除用に選択中のキー
   const [selectedKey, setSelectedKey] = useState("");
@@ -84,6 +105,90 @@ export function AppSidebar() {
     refreshSaveList();
   }, [refreshSaveList]);
 
+  // -------------------------------------
+  // 新規セーブ
+  // -------------------------------------
+  const handleNewSave = () => {
+    if (!saveName) {
+      alert("セーブ名を入力してください。");
+      return;
+    }
+    const data = getValues();
+    const now = Date.now();
+    // 新規キー (同名でも別キー)
+    const newKey = `myECFGData_${now}`;
+    const obj: SaveData = {
+      name: saveName,
+      updatedAt: now,
+      data,
+    };
+    localStorage.setItem(newKey, JSON.stringify(obj));
+    alert(`新規セーブ: "${saveName}" (key=${newKey})`);
+    setSaveName("");
+
+    // ★ 新規セーブ後、そのデータをロード中にする
+    setCurrentLoadedKey(newKey);
+    setCurrentLoadedName(saveName);
+
+    refreshSaveList();
+  };
+
+  // -------------------------------------
+  // 上書きセーブ (ロード中のキーがある場合のみ)
+  // -------------------------------------
+  const handleOverwriteSave = () => {
+    if (!currentLoadedKey) {
+      alert("ロード中のセーブデータがありません (上書き不可)。");
+      return;
+    }
+    const raw = localStorage.getItem(currentLoadedKey);
+    if (!raw) {
+      alert("ロード中のキーが見つかりません。削除された可能性があります。");
+      setCurrentLoadedKey("");
+      setCurrentLoadedName("");
+      refreshSaveList();
+      return;
+    }
+    try {
+      const oldObj = JSON.parse(raw) as SaveData;
+      const newData = getValues();
+      const now = Date.now();
+      const updated: SaveData = {
+        name: oldObj.name, // セーブ名は変えない
+        updatedAt: now,
+        data: newData,
+      };
+      localStorage.setItem(currentLoadedKey, JSON.stringify(updated));
+      alert(`上書きしました: ${oldObj.name} (key=${currentLoadedKey})`);
+
+      // 更新時刻が変わったので一覧再読み込み
+      refreshSaveList();
+    } catch (e) {
+      alert("上書きに失敗しました。パースエラー?");
+      console.error(e);
+    }
+  };
+  // -------------------------------------
+  // 新規データ (フォーム初期化 & ロード状態を解除)
+  // -------------------------------------
+  const handleNewData = () => {
+    reset({
+      terminals: [],
+      nonTerminals: [],
+      productions: [{ lhs: "", rhs: [] }],
+      startSymbol: "",
+      forNullable: [],
+      forFirstSet: [],
+      forFollowSet: "__none__",
+      forDirectorSet: "__none__",
+    });
+    setCurrentLoadedKey("");
+    setCurrentLoadedName("");
+  };
+
+  // -------------------------------------
+  // ロード
+  // -------------------------------------
   const handleLoad = (key: string) => {
     if (!key) {
       alert("ロードするセーブを選択してください。");
@@ -146,20 +251,56 @@ export function AppSidebar() {
         <p className="p-2">Save menu</p>
         <SidebarMenu className="space-y-1 px-4">
           <SidebarMenuItem>
-            <Button
-              type="button"
-              className="flex w-full items-center justify-start gap-4 px-6"
-              variant="default"
-            >
-              <Save className="size-5" />
-              Save as new
-            </Button>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button
+                  variant="default"
+                  className="flex w-full items-center justify-start gap-4 px-6"
+                >
+                  <Save />
+                  Save as new
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Save the grammer as new</DialogTitle>
+                  <DialogDescription>
+                    Enter a name of the grammer
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="name" className="text-right">
+                      Name
+                    </Label>
+                    <Input
+                      value={saveName}
+                      onChange={(e) => setSaveName(e.target.value)}
+                      className="col-span-3"
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <DialogClose asChild>
+                    <Button
+                      type="button"
+                      onClick={handleNewSave}
+                      disabled={!saveName}
+                    >
+                      Save
+                    </Button>
+                  </DialogClose>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </SidebarMenuItem>
           <SidebarMenuItem>
             <Button
               type="button"
               className="flex w-full items-center justify-start gap-4 px-6"
               variant="default"
+              disabled={!currentLoadedKey}
+              onClick={handleOverwriteSave}
             >
               <SaveAll className="size-5" />
               Save (overwrite)
@@ -170,6 +311,7 @@ export function AppSidebar() {
               type="button"
               className="flex w-full items-center justify-start gap-4 px-6"
               variant="default"
+              onClick={handleNewData}
             >
               <Plus className="size-5" />
               New Grammer
@@ -184,16 +326,6 @@ export function AppSidebar() {
             <SidebarMenu>
               {saveList.map((item) => (
                 <SidebarMenuItem key={item.key}>
-                  {/* <div className="hover:bg-white has-[p:hover]:bg-blue-500"> */}
-                  {/*   <p>ff</p> */}
-                  {/*   <p className="hover:bg-red-500"> */}
-                  {/*     hoge */}
-                  {/*   </p> */}
-                  {/* </div> */}
-                  {/* <div className="border hover:bg-blue-500 has-[*:hover]:bg-white"> */}
-                  {/*   <p className="">ff</p> */}
-                  {/*   <p className="hover:bg-red-500">hoge</p> */}
-                  {/* </div> */}
                   <SidebarMenuButton
                     className={cn(
                       currentLoadedKey == item.key && "bg-sidebar-accent",
