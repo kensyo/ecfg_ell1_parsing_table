@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
+  useForm,
   FieldErrors,
   useFieldArray,
   Controller,
@@ -31,6 +32,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { defaultECFG } from "./core-contents";
 
 // -------------------------------------
 // 型定義
@@ -97,6 +99,38 @@ function renderBadges(items: string[], asSet: boolean = false) {
 
 export default function ECFGForm() {
   // -------------------------------------
+  // 初期フォーム状態を定義
+  // -------------------------------------
+  // const defaultECFG: ECFG = {
+  //   terminals: [],
+  //   nonTerminals: [],
+  //   productions: [{ lhs: "", rhs: [] }],
+  //   startSymbol: "",
+  //   forNullable: [],
+  //   forFirstSet: [],
+  //   forFollowSet: "__none__",
+  //   forDirectorSet: "__none__",
+  // };
+
+  // フォーム内容が等しいかざっくり判定
+  function isECFGEqual(a: ECFG, b: ECFG): boolean {
+    return JSON.stringify(a) === JSON.stringify(b);
+  }
+
+  // ロード中のデータを localStorage から取り出すヘルパー
+  function getCurrentLoadedData(): ECFG | null {
+    if (!currentLoadedKey) return null;
+    const raw = localStorage.getItem(currentLoadedKey);
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw) as SaveData;
+      return parsed.data;
+    } catch {
+      return null;
+    }
+  }
+
+  // -------------------------------------
   // useForm & State
   // -------------------------------------
   const {
@@ -137,7 +171,6 @@ export default function ECFGForm() {
   const [selectedKey, setSelectedKey] = useState("");
 
   // 現在ロード中のキー & 名前 → 上書きセーブに使う
-  // 要求仕様: 「ロード中なら、キーと名前を表示しておく」
   const [currentLoadedKey, setCurrentLoadedKey] = useState("");
   const [currentLoadedName, setCurrentLoadedName] = useState("");
 
@@ -268,7 +301,7 @@ export default function ECFGForm() {
     alert(`新規セーブ: "${saveName}" (key=${newKey})`);
     setSaveName("");
 
-    // ★ 新規セーブ後、そのデータをロード中にする
+    // 新規セーブ後、そのデータをロード中にする
     setCurrentLoadedKey(newKey);
     setCurrentLoadedName(saveName);
 
@@ -313,18 +346,36 @@ export default function ECFGForm() {
 
   // -------------------------------------
   // 新規データ (フォーム初期化 & ロード状態を解除)
+  // 何もロードしていない or ロード中 => 変更があれば確認
   // -------------------------------------
   const handleNewData = () => {
-    reset({
-      terminals: [],
-      nonTerminals: [],
-      productions: [{ lhs: "", rhs: [] }],
-      startSymbol: "",
-      forNullable: [],
-      forFirstSet: [],
-      forFollowSet: "__none__",
-      forDirectorSet: "__none__",
-    });
+    // 1) 何もロードしていない状態
+    if (!currentLoadedKey) {
+      // フォームが初期状態と異なる場合は確認
+      if (!isECFGEqual(getValues(), defaultECFG)) {
+        if (
+          !confirm(
+            "フォームが初期状態ではありません。変更を破棄して新規データを作成しますか？",
+          )
+        ) {
+          return;
+        }
+      }
+    } else {
+      // 2) 何かしらロード中のデータがある場合
+      const loaded = getCurrentLoadedData();
+      if (loaded && !isECFGEqual(getValues(), loaded)) {
+        if (
+          !confirm(
+            "ロード済みのデータから変更があります。破棄して新規データを作成しますか？",
+          )
+        ) {
+          return;
+        }
+      }
+    }
+
+    reset(defaultECFG);
     setCurrentLoadedKey("");
     setCurrentLoadedName("");
   };
@@ -337,6 +388,32 @@ export default function ECFGForm() {
       alert("ロードするセーブを選択してください。");
       return;
     }
+
+    // 1) 何もロードしていない状態
+    if (!currentLoadedKey) {
+      if (!isECFGEqual(getValues(), defaultECFG)) {
+        if (
+          !confirm(
+            "フォームが初期状態ではありません。変更を破棄してロードしますか？",
+          )
+        ) {
+          return;
+        }
+      }
+    } else {
+      // 2) ロード中のデータがある状態
+      const loaded = getCurrentLoadedData();
+      if (loaded && !isECFGEqual(getValues(), loaded)) {
+        if (
+          !confirm(
+            "ロード済みデータから変更があります。破棄してロードしますか？",
+          )
+        ) {
+          return;
+        }
+      }
+    }
+
     const raw = localStorage.getItem(selectedKey);
     if (!raw) {
       alert("選択されたキーが見つかりません。削除された可能性があります。");

@@ -25,22 +25,24 @@ export type ECFG = {
   forDirectorSet: string; // ← 同上
 };
 
+export const defaultECFG: ECFG = {
+  terminals: [],
+  nonTerminals: [],
+  productions: [{ lhs: "", rhs: [] }],
+  startSymbol: "",
+  forNullable: [],
+  forFirstSet: [],
+  forFollowSet: "__none__",
+  forDirectorSet: "__none__",
+};
+
 export default function CoreContents({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const methods = useForm<ECFG>({
-    defaultValues: {
-      terminals: [],
-      nonTerminals: [],
-      productions: [{ lhs: "", rhs: [] }],
-      startSymbol: "",
-      forNullable: [],
-      forFirstSet: [],
-      forFollowSet: "__none__",
-      forDirectorSet: "__none__",
-    },
+    defaultValues: defaultECFG,
   });
 
   return (

@@ -11,6 +11,7 @@ import {
 
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -43,7 +44,7 @@ import {
 } from "./ui/dropdown-menu";
 import { Label } from "./ui/label";
 import { Input } from "./ui/input";
-import { DialogClose } from "@radix-ui/react-dialog";
+import { defaultECFG } from "./core-contents";
 
 type SaveItem = {
   key: string; // localStorage のキー
@@ -58,6 +59,28 @@ type SaveData = {
 };
 
 export function AppSidebar() {
+  function isECFGEqual(a: ECFG, b: ECFG): boolean {
+    return (
+      JSON.stringify(a.terminals) === JSON.stringify(b.terminals) &&
+      JSON.stringify(a.nonTerminals) === JSON.stringify(b.nonTerminals) &&
+      JSON.stringify(a.productions) === JSON.stringify(b.productions) &&
+      a.startSymbol === b.startSymbol
+    );
+  }
+
+  // ロード中のデータを localStorage から取り出すヘルパー
+  function getCurrentLoadedData(): ECFG | null {
+    if (!currentLoadedKey) return null;
+    const raw = localStorage.getItem(currentLoadedKey);
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw) as SaveData;
+      return parsed.data;
+    } catch {
+      return null;
+    }
+  }
+
   const { resetField, reset, getValues } = useFormContext<ECFG>();
 
   // UI: セーブ名入力
@@ -170,18 +193,36 @@ export function AppSidebar() {
   };
   // -------------------------------------
   // 新規データ (フォーム初期化 & ロード状態を解除)
+  // 何もロードしていない or ロード中 => 変更があれば確認
   // -------------------------------------
   const handleNewData = () => {
-    reset({
-      terminals: [],
-      nonTerminals: [],
-      productions: [{ lhs: "", rhs: [] }],
-      startSymbol: "",
-      forNullable: [],
-      forFirstSet: [],
-      forFollowSet: "__none__",
-      forDirectorSet: "__none__",
-    });
+    // 1) 何もロードしていない状態
+    if (!currentLoadedKey) {
+      // フォームが初期状態と異なる場合は確認
+      if (!isECFGEqual(getValues(), defaultECFG)) {
+        if (
+          !confirm(
+            "フォームが初期状態ではありません。変更を破棄して新規データを作成しますか？",
+          )
+        ) {
+          return;
+        }
+      }
+    } else {
+      // 2) 何かしらロード中のデータがある場合
+      const loaded = getCurrentLoadedData();
+      if (loaded && !isECFGEqual(getValues(), loaded)) {
+        if (
+          !confirm(
+            "ロード済みのデータから変更があります。破棄して新規データを作成しますか？",
+          )
+        ) {
+          return;
+        }
+      }
+    }
+
+    reset(defaultECFG);
     setCurrentLoadedKey("");
     setCurrentLoadedName("");
   };
@@ -194,6 +235,32 @@ export function AppSidebar() {
       alert("ロードするセーブを選択してください。");
       return;
     }
+
+    // 1) 何もロードしていない状態
+    if (!currentLoadedKey) {
+      if (!isECFGEqual(getValues(), defaultECFG)) {
+        if (
+          !confirm(
+            "フォームが初期状態ではありません。変更を破棄してロードしますか？",
+          )
+        ) {
+          return;
+        }
+      }
+    } else {
+      // 2) ロード中のデータがある状態
+      const loaded = getCurrentLoadedData();
+      if (loaded && !isECFGEqual(getValues(), loaded)) {
+        if (
+          !confirm(
+            "ロード済みデータから変更があります。破棄してロードしますか？",
+          )
+        ) {
+          return;
+        }
+      }
+    }
+
     const raw = localStorage.getItem(key);
     if (!raw) {
       alert("選択されたキーが見つかりません。削除された可能性があります。");
