@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   FieldErrors,
   useFieldArray,
@@ -31,7 +31,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { defaultECFG } from "./core-contents";
 
 // -------------------------------------
 // 型定義
@@ -60,13 +59,6 @@ type WasmResults = {
   followSet: string[];
   directorEntries: Array<[string[], string[]]>; // ディレクタセット (キー配列, 値配列)
 };
-
-// セーブデータ: { name, updatedAt, data }
-interface SaveData {
-  name: string;
-  updatedAt: number;
-  data: ECFG;
-}
 
 const SPECIAL_STR = ["\\|", "\\(", "\\)", "\\{", "\\}"];
 
@@ -97,29 +89,6 @@ function renderBadges(items: string[], asSet: boolean = false) {
 }
 
 export default function ECFGForm() {
-  // フォーム内容が等しいかざっくり判定 (非比較項目は対象外)
-  function isECFGEqual(a: ECFG, b: ECFG): boolean {
-    return (
-      JSON.stringify(a.terminals) === JSON.stringify(b.terminals) &&
-      JSON.stringify(a.nonTerminals) === JSON.stringify(b.nonTerminals) &&
-      JSON.stringify(a.productions) === JSON.stringify(b.productions) &&
-      a.startSymbol === b.startSymbol
-    );
-  }
-
-  // ロード中のデータを localStorage から取り出すヘルパー
-  function getCurrentLoadedData(): ECFG | null {
-    if (!currentLoadedKey) return null;
-    const raw = localStorage.getItem(currentLoadedKey);
-    if (!raw) return null;
-    try {
-      const parsed = JSON.parse(raw) as SaveData;
-      return parsed.data;
-    } catch {
-      return null;
-    }
-  }
-
   // -------------------------------------
   // useForm & State
   // -------------------------------------
@@ -127,9 +96,6 @@ export default function ECFGForm() {
     control,
     handleSubmit,
     setValue,
-    getValues,
-    reset,
-    resetField,
     formState: { errors },
   } = useFormContext<ECFG>();
 
@@ -145,24 +111,6 @@ export default function ECFGForm() {
   // useWatch
   const productions = useWatch({ control, name: "productions" });
   const nonTerminals = useWatch({ control, name: "nonTerminals" }) || [];
-
-  // セーブデータ一覧を表示用
-  interface SaveItem {
-    key: string; // localStorage のキー
-    name: string; // ユーザーが指定した名前
-    updatedAt: number;
-  }
-  const [saveList, setSaveList] = useState<SaveItem[]>([]);
-
-  // UI: セーブ名入力 (新規作成・リネーム兼用)
-  const [saveName, setSaveName] = useState("");
-
-  // UI: ロード/削除用に選択中のキー
-  const [selectedKey, setSelectedKey] = useState("");
-
-  // 現在ロード中のキー & 名前 → 上書きセーブに使う
-  const [currentLoadedKey, setCurrentLoadedKey] = useState("");
-  const [currentLoadedName, setCurrentLoadedName] = useState("");
 
   // -------------------------------------
   // productions 変化時に NonTerminals & Terminals を再計算
@@ -238,279 +186,8 @@ export default function ECFGForm() {
     console.error("Validation errors:", errs);
   };
 
-  // -------------------------------------
-  // localStorage からセーブ一覧を読み込み & 更新
-  // -------------------------------------
-  const refreshSaveList = useCallback(() => {
-    const arr: SaveItem[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (!k) continue;
-      if (k.startsWith("myECFGData_")) {
-        const raw = localStorage.getItem(k);
-        if (!raw) continue;
-        try {
-          const parsed = JSON.parse(raw) as SaveData;
-          arr.push({
-            key: k,
-            name: parsed.name,
-            updatedAt: parsed.updatedAt,
-          });
-        } catch (e) {
-          console.warn("Failed to parse storage item", k, e);
-        }
-      }
-    }
-    // updatedAt 降順でソート
-    arr.sort((a, b) => b.updatedAt - a.updatedAt);
-    setSaveList(arr);
-  }, []);
-
-  useEffect(() => {
-    refreshSaveList();
-  }, [refreshSaveList]);
-
-  // -------------------------------------
-  // 新規セーブ
-  // -------------------------------------
-  const handleNewSave = () => {
-    if (!saveName) {
-      alert("セーブ名を入力してください。");
-      return;
-    }
-    const data = getValues();
-    const now = Date.now();
-    // 新規キー (同名でも別キー)
-    const newKey = `myECFGData_${now}`;
-    const obj: SaveData = {
-      name: saveName,
-      updatedAt: now,
-      data,
-    };
-    localStorage.setItem(newKey, JSON.stringify(obj));
-    alert(`新規セーブ: "${saveName}" (key=${newKey})`);
-    setSaveName("");
-
-    // 新規セーブ後、そのデータをロード中にする
-    setCurrentLoadedKey(newKey);
-    setCurrentLoadedName(obj.name);
-
-    refreshSaveList();
-  };
-
-  // -------------------------------------
-  // 上書きセーブ (ロード中のキーがある場合のみ)
-  // -------------------------------------
-  const handleOverwriteSave = () => {
-    if (!currentLoadedKey) {
-      alert("ロード中のセーブデータがありません (上書き不可)。");
-      return;
-    }
-    const raw = localStorage.getItem(currentLoadedKey);
-    if (!raw) {
-      alert("ロード中のキーが見つかりません。削除された可能性があります。");
-      setCurrentLoadedKey("");
-      setCurrentLoadedName("");
-      refreshSaveList();
-      return;
-    }
-    try {
-      const oldObj = JSON.parse(raw) as SaveData;
-      const newData = getValues();
-      const now = Date.now();
-      const updated: SaveData = {
-        name: oldObj.name, // セーブ名は変えない
-        updatedAt: now,
-        data: newData,
-      };
-      localStorage.setItem(currentLoadedKey, JSON.stringify(updated));
-      alert(`上書きしました: ${oldObj.name} (key=${currentLoadedKey})`);
-
-      // 更新時刻が変わったので一覧再読み込み
-      refreshSaveList();
-    } catch (e) {
-      alert("上書きに失敗しました。パースエラー?");
-      console.error(e);
-    }
-  };
-
-  // -------------------------------------
-  // ★ 追加: Rename Save (ロード中のデータのみ)
-  // -------------------------------------
-  const handleRenameSave = () => {
-    if (!currentLoadedKey) {
-      alert("ロード中のセーブデータがありません。");
-      return;
-    }
-    if (!saveName) {
-      alert("新しいセーブ名を入力してください。");
-      return;
-    }
-    const raw = localStorage.getItem(currentLoadedKey);
-    if (!raw) {
-      alert("ロード中のキーが見つかりません。削除された可能性があります。");
-      setCurrentLoadedKey("");
-      setCurrentLoadedName("");
-      refreshSaveList();
-      return;
-    }
-    try {
-      const oldObj = JSON.parse(raw) as SaveData;
-      // 名前だけ変更
-      const now = Date.now();
-      const renamed: SaveData = {
-        ...oldObj,
-        name: saveName,
-        updatedAt: now, // 名前変更タイミングで更新日時も変える
-      };
-      localStorage.setItem(currentLoadedKey, JSON.stringify(renamed));
-
-      // 現在ロード中の名前を更新
-      setCurrentLoadedName(renamed.name);
-
-      // セーブ名入力フォームはクリア or 継続好みで
-      setSaveName("");
-
-      alert(
-        `リネームしました: ${oldObj.name} -> ${renamed.name} (key=${currentLoadedKey})`,
-      );
-      refreshSaveList();
-    } catch (e) {
-      alert("リネームに失敗しました。パースエラー?");
-      console.error(e);
-    }
-  };
-
-  // -------------------------------------
-  // 新規データ (フォーム初期化 & ロード状態を解除)
-  // -------------------------------------
-  const handleNewData = () => {
-    // 1) 何もロードしていない状態
-    if (!currentLoadedKey) {
-      if (!isECFGEqual(getValues(), defaultECFG)) {
-        if (
-          !confirm(
-            "フォームが初期状態ではありません。変更を破棄して新規データを作成しますか？",
-          )
-        ) {
-          return;
-        }
-      }
-    } else {
-      // 2) 何かしらロード中のデータがある場合
-      const loaded = getCurrentLoadedData();
-      if (loaded && !isECFGEqual(getValues(), loaded)) {
-        if (
-          !confirm(
-            "ロード済みのデータから変更があります。破棄して新規データを作成しますか？",
-          )
-        ) {
-          return;
-        }
-      }
-    }
-
-    reset(defaultECFG);
-    setCurrentLoadedKey("");
-    setCurrentLoadedName("");
-  };
-
-  // -------------------------------------
-  // ロード
-  // -------------------------------------
-  const handleLoad = () => {
-    if (!selectedKey) {
-      alert("ロードするセーブを選択してください。");
-      return;
-    }
-
-    // 1) 何もロードしていない状態
-    if (!currentLoadedKey) {
-      if (!isECFGEqual(getValues(), defaultECFG)) {
-        if (
-          !confirm(
-            "フォームが初期状態ではありません。変更を破棄してロードしますか？",
-          )
-        ) {
-          return;
-        }
-      }
-    } else {
-      // 2) ロード中のデータがある状態
-      const loaded = getCurrentLoadedData();
-      if (loaded && !isECFGEqual(getValues(), loaded)) {
-        if (
-          !confirm(
-            "ロード済みデータから変更があります。破棄してロードしますか？",
-          )
-        ) {
-          return;
-        }
-      }
-    }
-
-    const raw = localStorage.getItem(selectedKey);
-    if (!raw) {
-      alert("選択されたキーが見つかりません。削除された可能性があります。");
-      return;
-    }
-    try {
-      const parsed = JSON.parse(raw) as SaveData;
-      const ecfgData = parsed.data;
-
-      // 同様に、Select系は一度初期化してから リセット
-      reset({
-        ...ecfgData,
-        startSymbol: "",
-        forFollowSet: "__none__",
-        forDirectorSet: "__none__",
-      });
-      setTimeout(() => {
-        resetField("startSymbol", { defaultValue: ecfgData.startSymbol });
-        resetField("forFollowSet", { defaultValue: ecfgData.forFollowSet });
-        resetField("forDirectorSet", { defaultValue: ecfgData.forDirectorSet });
-      }, 0);
-
-      // ロード状態
-      setCurrentLoadedKey(selectedKey);
-      setCurrentLoadedName(parsed.name);
-
-      alert(`ロードしました: ${parsed.name} (key=${selectedKey})`);
-    } catch (e) {
-      alert("ロード失敗 (JSONパースエラー?)");
-      console.error(e);
-    }
-  };
-
-  // -------------------------------------
-  // 削除
-  // -------------------------------------
-  const handleDelete = () => {
-    if (!selectedKey) {
-      alert("削除するセーブを選択してください。");
-      return;
-    }
-    localStorage.removeItem(selectedKey);
-    alert(`削除しました: key=${selectedKey}`);
-    // もしロード中のデータを消したらロード状態をクリア
-    if (selectedKey === currentLoadedKey) {
-      setCurrentLoadedKey("");
-      setCurrentLoadedName("");
-    }
-    setSelectedKey("");
-    refreshSaveList();
-  };
-
   return (
     <form onSubmit={handleSubmit(onValid, onInvalid)} className="space-y-3">
-      {/* ★ 現在ロード中のデータ表示 */}
-      {currentLoadedKey && (
-        <p className="rounded bg-muted px-2 py-1 text-sm text-muted-foreground">
-          現在ロード中: <strong>{currentLoadedName}</strong> (key=
-          {currentLoadedKey})
-        </p>
-      )}
-
       {/* 1) NonTerminal symbols (auto-generated by productions) */}
       <FormItem>
         <Label>NonTerminal symbols (auto-generated by productions)</Label>
@@ -788,85 +465,12 @@ export default function ECFGForm() {
         Submit
       </Button>
 
-      {/*
-        4 つのボタン:
-        1) 新規セーブ
-        2) 上書きセーブ
-        3) 新規データ
-        4) Rename Save (※追加)
-      */}
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        {/* 新規セーブ */}
-        <div>
-          <Label>Save Name</Label>
-          <input
-            className="ml-2 border px-2 py-1"
-            placeholder="例: MyGrammar"
-            value={saveName}
-            onChange={(e) => setSaveName(e.target.value)}
-          />
-        </div>
-        <Button type="button" onClick={handleNewSave} className="bg-gray-500">
-          新規セーブ
-        </Button>
-
-        {/* 上書きセーブ (ロード中のみ押せる) */}
-        <Button
-          type="button"
-          onClick={handleOverwriteSave}
-          disabled={!currentLoadedKey}
-          className="bg-yellow-500 text-black"
-        >
-          上書きセーブ
-        </Button>
-
-        {/* 新規データ */}
-        <Button type="button" onClick={handleNewData} className="bg-gray-300">
-          新規データ
-        </Button>
-
-        {/* Rename Save */}
-        <Button
-          type="button"
-          onClick={handleRenameSave}
-          className="bg-purple-400 text-white"
-        >
-          Rename Save
-        </Button>
-      </div>
-
-      {/*
-        ロード/削除
-        リストは updatedAt 降順
-      */}
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <Label>Load / Delete:</Label>
-        <select
-          className="border px-2 py-1"
-          value={selectedKey}
-          onChange={(e) => setSelectedKey(e.target.value)}
-        >
-          <option value="">(choose a save)</option>
-          {saveList.map((item) => (
-            <option key={item.key} value={item.key}>
-              {item.name} (updated {new Date(item.updatedAt).toLocaleString()})
-            </option>
-          ))}
-        </select>
-        <Button type="button" onClick={handleLoad} className="bg-blue-300">
-          Load
-        </Button>
-        <Button type="button" onClick={handleDelete} className="bg-red-400">
-          Delete
-        </Button>
-      </div>
-
       {/* 送信後のフォームデータ (デバッグ表示) */}
-      {formData && (
-        <pre className="mt-4 rounded border p-2">
-          {JSON.stringify(formData, null, 2)}
-        </pre>
-      )}
+      {/* {formData && ( */}
+      {/*   <pre className="mt-4 rounded border p-2"> */}
+      {/*     {JSON.stringify(formData, null, 2)} */}
+      {/*   </pre> */}
+      {/* )} */}
 
       {/* Rust/wasm結果 */}
       {wasmResults && (
