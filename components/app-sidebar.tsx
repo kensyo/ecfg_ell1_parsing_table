@@ -92,13 +92,9 @@ export function AppSidebar() {
   // UI: セーブ名入力
   const [saveName, setSaveName] = useState("");
 
-  // UI: ロード/削除用に選択中のキー
-  const [selectedKey, setSelectedKey] = useState("");
-
   // 現在ロード中のキー & 名前 → 上書きセーブに使う
   // 要求仕様: 「ロード中なら、キーと名前を表示しておく」
   const [currentLoadedKey, setCurrentLoadedKey] = useState("");
-  const [currentLoadedName, setCurrentLoadedName] = useState("");
 
   // -------------------------------------
   // localStorage からセーブ一覧を読み込み & 更新
@@ -157,7 +153,6 @@ export function AppSidebar() {
 
     // ★ 新規セーブ後、そのデータをロード中にする
     setCurrentLoadedKey(newKey);
-    setCurrentLoadedName(saveName);
 
     refreshSaveList();
   };
@@ -174,7 +169,6 @@ export function AppSidebar() {
     if (!raw) {
       alert("ロード中のキーが見つかりません。削除された可能性があります。");
       setCurrentLoadedKey("");
-      setCurrentLoadedName("");
       refreshSaveList();
       return;
     }
@@ -214,7 +208,6 @@ export function AppSidebar() {
     if (!raw) {
       alert("ロード中のキーが見つかりません。削除された可能性があります。");
       setCurrentLoadedKey("");
-      setCurrentLoadedName("");
       refreshSaveList();
       return;
     }
@@ -228,9 +221,6 @@ export function AppSidebar() {
         // updatedAt: now, // 名前変更タイミングで更新日時も変える
       };
       localStorage.setItem(key, JSON.stringify(renamed));
-
-      // 現在ロード中の名前を更新
-      setCurrentLoadedName(renamed.name);
 
       // セーブ名入力フォームはクリア or 継続好みで
       setSaveName("");
@@ -276,7 +266,6 @@ export function AppSidebar() {
 
     reset(defaultECFG);
     setCurrentLoadedKey("");
-    setCurrentLoadedName("");
   };
 
   // -------------------------------------
@@ -337,7 +326,6 @@ export function AppSidebar() {
 
       // ロード状態
       setCurrentLoadedKey(key);
-      setCurrentLoadedName(parsed.name);
       alert(`ロードしました: ${parsed.name} (key=${key})`);
     } catch (e) {
       alert("ロード失敗 (JSONパースエラー?)");
@@ -358,9 +346,7 @@ export function AppSidebar() {
     // もしロード中のデータを消したらロード状態をクリア
     if (key === currentLoadedKey) {
       setCurrentLoadedKey("");
-      setCurrentLoadedName("");
     }
-    setSelectedKey("");
     refreshSaveList();
   };
 
@@ -456,7 +442,6 @@ export function AppSidebar() {
                         return;
                       }
                       handleLoad(item.key);
-                      setSelectedKey(item.key);
                     }}
                   >
                     <div className="flex" tabIndex={0}>
@@ -483,7 +468,6 @@ export function AppSidebar() {
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleLoad(item.key);
-                                setSelectedKey(item.key);
                               }}
                             >
                               <BookOpen />
@@ -551,7 +535,6 @@ export function AppSidebar() {
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       handleRenameSave(item.key);
-                                      setSelectedKey(item.key);
                                     }}
                                     disabled={!saveName}
                                   >
@@ -584,7 +567,6 @@ export function AppSidebar() {
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       handleDelete(item.key);
-                                      setSelectedKey(item.key);
                                     }}
                                   >
                                     Delete
