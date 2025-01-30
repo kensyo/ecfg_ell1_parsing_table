@@ -4,6 +4,7 @@ import {
   BookOpen,
   CircleX,
   EllipsisVertical,
+  FolderPen,
   Plus,
   Save,
   SaveAll,
@@ -80,6 +81,8 @@ export function AppSidebar() {
       return null;
     }
   }
+
+  const [openedDialog, setOpenedDialog] = useState<"delete" | "rename">();
 
   const { resetField, reset, getValues } = useFormContext<ECFG>();
 
@@ -191,6 +194,52 @@ export function AppSidebar() {
       console.error(e);
     }
   };
+
+  // -------------------------------------
+  // ★ 追加: Rename Save
+  // -------------------------------------
+  const handleRenameSave = (key: string) => {
+    if (!key) {
+      alert("ロード中のセーブデータがありません。");
+      return;
+    }
+    if (!saveName) {
+      alert("新しいセーブ名を入力してください。");
+      return;
+    }
+    const raw = localStorage.getItem(key);
+    if (!raw) {
+      alert("ロード中のキーが見つかりません。削除された可能性があります。");
+      setCurrentLoadedKey("");
+      setCurrentLoadedName("");
+      refreshSaveList();
+      return;
+    }
+    try {
+      const oldObj = JSON.parse(raw) as SaveData;
+      // 名前だけ変更
+      // const now = Date.now();
+      const renamed: SaveData = {
+        ...oldObj,
+        name: saveName,
+        // updatedAt: now, // 名前変更タイミングで更新日時も変える
+      };
+      localStorage.setItem(key, JSON.stringify(renamed));
+
+      // 現在ロード中の名前を更新
+      setCurrentLoadedName(renamed.name);
+
+      // セーブ名入力フォームはクリア or 継続好みで
+      setSaveName("");
+
+      alert(`リネームしました: ${oldObj.name} -> ${renamed.name} (key=${key})`);
+      refreshSaveList();
+    } catch (e) {
+      alert("リネームに失敗しました。パースエラー?");
+      console.error(e);
+    }
+  };
+
   // -------------------------------------
   // 新規データ (フォーム初期化 & ロード状態を解除)
   // 何もロードしていない or ロード中 => 変更があれば確認
@@ -399,46 +448,150 @@ export function AppSidebar() {
                       "has-[button:hover]:bg-transparent",
                     )}
                     asChild
-                    onClick={(_e) => {
+                    onClick={(e) => {
+                      if (e.target !== e.currentTarget) {
+                        return;
+                      }
                       handleLoad(item.key);
                       setSelectedKey(item.key);
                     }}
                   >
                     <div className="flex" tabIndex={0}>
-                      <span className="flex-1">{item.name}</span>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            className="rounded-full border-none"
-                            variant="ghost"
-                            size="icon"
-                          >
-                            <EllipsisVertical size="20" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleLoad(item.key);
-                              setSelectedKey(item.key);
-                            }}
-                          >
-                            <BookOpen />
-                            <span>Load</span>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDelete(item.key);
-                              setSelectedKey(item.key);
-                            }}
-                          >
-                            <CircleX />
-                            <span>Delete</span>
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <span className="pointer-events-none flex-1">
+                        {item.name}
+                      </span>
+                      <Dialog>
+                        <DropdownMenu modal={false}>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              className="rounded-full"
+                              size="icon"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                              }}
+                            >
+                              <span className="sr-only">Open menu</span>
+                              <EllipsisVertical />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleLoad(item.key);
+                                setSelectedKey(item.key);
+                              }}
+                            >
+                              <BookOpen />
+                              <span>Load</span>
+                            </DropdownMenuItem>
+                            <DialogTrigger
+                              asChild
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenedDialog("rename");
+                              }}
+                            >
+                              <DropdownMenuItem>
+                                <FolderPen />
+                                <span>Rename</span>
+                              </DropdownMenuItem>
+                            </DialogTrigger>
+                            <DialogTrigger
+                              asChild
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenedDialog("delete");
+                              }}
+                            >
+                              <DropdownMenuItem>
+                                <CircleX className="text-destructive" />
+                                <span className="text-destructive">Delete</span>
+                              </DropdownMenuItem>
+                            </DialogTrigger>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        <DialogContent
+                          onClick={(e) => {
+                            e.stopPropagation();
+                          }}
+                        >
+                          {openedDialog === "rename" ? (
+                            <>
+                              <DialogHeader>
+                                <DialogTitle>
+                                  Rename the data &quot;{item.name}&quot;
+                                </DialogTitle>
+                                <DialogDescription>
+                                  Enter a new name of the data
+                                </DialogDescription>
+                              </DialogHeader>
+                              <div className="grid gap-4 py-4">
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                  <Label htmlFor="name" className="text-right">
+                                    Name
+                                  </Label>
+                                  <Input
+                                    value={saveName}
+                                    onChange={(e) =>
+                                      setSaveName(e.target.value)
+                                    }
+                                    className="col-span-3"
+                                  />
+                                </div>
+                              </div>
+                              <DialogFooter>
+                                <DialogClose asChild>
+                                  <Button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleRenameSave(item.key);
+                                      setSelectedKey(item.key);
+                                    }}
+                                    disabled={!saveName}
+                                  >
+                                    Save
+                                  </Button>
+                                </DialogClose>
+                              </DialogFooter>
+                            </>
+                          ) : (
+                            <>
+                              <DialogHeader>
+                                <DialogTitle>
+                                  Delete the data &quot;{item.name}&quot;
+                                </DialogTitle>
+                                <DialogDescription>
+                                  This operation can not be undone. Do you
+                                  really delete &quot;{item.name}&quot;?
+                                </DialogDescription>
+                              </DialogHeader>
+                              <DialogFooter>
+                                <DialogClose asChild>
+                                  <Button type="button" variant="secondary">
+                                    Cancel
+                                  </Button>
+                                </DialogClose>
+                                <DialogClose asChild>
+                                  <Button
+                                    variant="destructive"
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDelete(item.key);
+                                      setSelectedKey(item.key);
+                                    }}
+                                  >
+                                    Delete
+                                  </Button>
+                                </DialogClose>
+                              </DialogFooter>
+                            </>
+                          )}
+                        </DialogContent>
+                      </Dialog>
                     </div>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

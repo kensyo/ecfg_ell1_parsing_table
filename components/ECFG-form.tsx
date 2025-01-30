@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  useForm,
   FieldErrors,
   useFieldArray,
   Controller,
@@ -98,23 +97,14 @@ function renderBadges(items: string[], asSet: boolean = false) {
 }
 
 export default function ECFGForm() {
-  // -------------------------------------
-  // 初期フォーム状態を定義
-  // -------------------------------------
-  // const defaultECFG: ECFG = {
-  //   terminals: [],
-  //   nonTerminals: [],
-  //   productions: [{ lhs: "", rhs: [] }],
-  //   startSymbol: "",
-  //   forNullable: [],
-  //   forFirstSet: [],
-  //   forFollowSet: "__none__",
-  //   forDirectorSet: "__none__",
-  // };
-
-  // フォーム内容が等しいかざっくり判定
+  // フォーム内容が等しいかざっくり判定 (非比較項目は対象外)
   function isECFGEqual(a: ECFG, b: ECFG): boolean {
-    return JSON.stringify(a) === JSON.stringify(b);
+    return (
+      JSON.stringify(a.terminals) === JSON.stringify(b.terminals) &&
+      JSON.stringify(a.nonTerminals) === JSON.stringify(b.nonTerminals) &&
+      JSON.stringify(a.productions) === JSON.stringify(b.productions) &&
+      a.startSymbol === b.startSymbol
+    );
   }
 
   // ロード中のデータを localStorage から取り出すヘルパー
@@ -164,7 +154,7 @@ export default function ECFGForm() {
   }
   const [saveList, setSaveList] = useState<SaveItem[]>([]);
 
-  // UI: セーブ名入力
+  // UI: セーブ名入力 (新規作成・リネーム兼用)
   const [saveName, setSaveName] = useState("");
 
   // UI: ロード/削除用に選択中のキー
@@ -303,7 +293,7 @@ export default function ECFGForm() {
 
     // 新規セーブ後、そのデータをロード中にする
     setCurrentLoadedKey(newKey);
-    setCurrentLoadedName(saveName);
+    setCurrentLoadedName(obj.name);
 
     refreshSaveList();
   };
@@ -345,13 +335,58 @@ export default function ECFGForm() {
   };
 
   // -------------------------------------
+  // ★ 追加: Rename Save (ロード中のデータのみ)
+  // -------------------------------------
+  const handleRenameSave = () => {
+    if (!currentLoadedKey) {
+      alert("ロード中のセーブデータがありません。");
+      return;
+    }
+    if (!saveName) {
+      alert("新しいセーブ名を入力してください。");
+      return;
+    }
+    const raw = localStorage.getItem(currentLoadedKey);
+    if (!raw) {
+      alert("ロード中のキーが見つかりません。削除された可能性があります。");
+      setCurrentLoadedKey("");
+      setCurrentLoadedName("");
+      refreshSaveList();
+      return;
+    }
+    try {
+      const oldObj = JSON.parse(raw) as SaveData;
+      // 名前だけ変更
+      const now = Date.now();
+      const renamed: SaveData = {
+        ...oldObj,
+        name: saveName,
+        updatedAt: now, // 名前変更タイミングで更新日時も変える
+      };
+      localStorage.setItem(currentLoadedKey, JSON.stringify(renamed));
+
+      // 現在ロード中の名前を更新
+      setCurrentLoadedName(renamed.name);
+
+      // セーブ名入力フォームはクリア or 継続好みで
+      setSaveName("");
+
+      alert(
+        `リネームしました: ${oldObj.name} -> ${renamed.name} (key=${currentLoadedKey})`,
+      );
+      refreshSaveList();
+    } catch (e) {
+      alert("リネームに失敗しました。パースエラー?");
+      console.error(e);
+    }
+  };
+
+  // -------------------------------------
   // 新規データ (フォーム初期化 & ロード状態を解除)
-  // 何もロードしていない or ロード中 => 変更があれば確認
   // -------------------------------------
   const handleNewData = () => {
     // 1) 何もロードしていない状態
     if (!currentLoadedKey) {
-      // フォームが初期状態と異なる場合は確認
       if (!isECFGEqual(getValues(), defaultECFG)) {
         if (
           !confirm(
@@ -439,6 +474,7 @@ export default function ECFGForm() {
       // ロード状態
       setCurrentLoadedKey(selectedKey);
       setCurrentLoadedName(parsed.name);
+
       alert(`ロードしました: ${parsed.name} (key=${selectedKey})`);
     } catch (e) {
       alert("ロード失敗 (JSONパースエラー?)");
@@ -753,10 +789,11 @@ export default function ECFGForm() {
       </Button>
 
       {/*
-        3 つのボタン:
+        4 つのボタン:
         1) 新規セーブ
         2) 上書きセーブ
         3) 新規データ
+        4) Rename Save (※追加)
       */}
       <div className="mt-4 flex flex-wrap items-center gap-2">
         {/* 新規セーブ */}
@@ -786,6 +823,15 @@ export default function ECFGForm() {
         {/* 新規データ */}
         <Button type="button" onClick={handleNewData} className="bg-gray-300">
           新規データ
+        </Button>
+
+        {/* Rename Save */}
+        <Button
+          type="button"
+          onClick={handleRenameSave}
+          className="bg-purple-400 text-white"
+        >
+          Rename Save
         </Button>
       </div>
 
