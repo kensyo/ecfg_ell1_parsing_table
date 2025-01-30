@@ -31,6 +31,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "./ui/button";
 import { useCallback, useEffect, useState } from "react";
@@ -60,6 +61,8 @@ type SaveData = {
 };
 
 export function AppSidebar() {
+  const { isMobile } = useSidebar();
+
   function isECFGEqual(a: ECFG, b: ECFG): boolean {
     return (
       JSON.stringify(a.terminals) === JSON.stringify(b.terminals) &&
@@ -461,7 +464,7 @@ export function AppSidebar() {
                         {item.name}
                       </span>
                       <Dialog>
-                        <DropdownMenu modal={false}>
+                        <DropdownMenu modal={isMobile}>
                           <DropdownMenuTrigger asChild>
                             <Button
                               variant="ghost"
