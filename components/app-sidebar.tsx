@@ -138,7 +138,7 @@ export function AppSidebar() {
   // -------------------------------------
   const handleNewSave = () => {
     if (!saveName) {
-      toast.error("Enter a save name");
+      toast.error("Please enter a save name.");
       return;
     }
     const data = getValues();
@@ -151,8 +151,8 @@ export function AppSidebar() {
       data,
     };
     localStorage.setItem(newKey, JSON.stringify(obj));
-    toast.success("A new save has been created!", {
-      description: `save name: ${saveName}`,
+    toast.success("New save created successfully!", {
+      description: `Save Name: ${saveName}`,
     });
     setSaveName("");
 
@@ -167,12 +167,12 @@ export function AppSidebar() {
   // -------------------------------------
   const handleOverwriteSave = () => {
     if (!currentLoadedKey) {
-      toast.error("No loaded data. Undable to overwrite.");
+      toast.error("No loaded data available. Unable to overwrite.");
       return;
     }
     const raw = localStorage.getItem(currentLoadedKey);
     if (!raw) {
-      toast.error("No loaded key. Perhaps already deleted.");
+      toast.error("Save data not found. It may have been deleted.");
       setCurrentLoadedKey("");
       refreshSaveList();
       return;
@@ -187,14 +187,14 @@ export function AppSidebar() {
         data: newData,
       };
       localStorage.setItem(currentLoadedKey, JSON.stringify(updated));
-      toast.success("Succesfully overwritten!", {
-        description: `save name: ${oldObj.name}`,
+      toast.success("Save overwritten successfully!", {
+        description: `Save Name: ${oldObj.name}`,
       });
 
       // 更新時刻が変わったので一覧再読み込み
       refreshSaveList();
     } catch (e) {
-      toast.error("Failed to overwrite. Parse error?");
+      toast.error("Failed to overwrite save. JSON parsing error?");
       console.error(e);
     }
   };
@@ -204,16 +204,16 @@ export function AppSidebar() {
   // -------------------------------------
   const handleRenameSave = (key: string) => {
     if (!key) {
-      toast.error("No loaded data. Undable to overwrite.");
+      toast.error("No loaded data available. Unable to overwrite.");
       return;
     }
     if (!saveName) {
-      toast.error("Enter a new save name.");
+      toast.error("Please enter a new save name.");
       return;
     }
     const raw = localStorage.getItem(key);
     if (!raw) {
-      toast.error("No loaded key. Perhaps already deleted.");
+      toast.error("Save data not found. It may have been deleted.");
       setCurrentLoadedKey("");
       refreshSaveList();
       return;
@@ -232,10 +232,12 @@ export function AppSidebar() {
       // セーブ名入力フォームはクリア or 継続好みで
       setSaveName("");
 
-      toast.info(`Renamed: ${oldObj.name} -> ${renamed.name}`);
+      toast.info(
+        `Save renamed successfully: ${oldObj.name} -> ${renamed.name}`,
+      );
       refreshSaveList();
     } catch (e) {
-      toast.error("Failed to rename. Parse error?");
+      toast.error("Failed to rename save. JSON parsing error?");
       console.error(e);
     }
   };
@@ -251,11 +253,11 @@ export function AppSidebar() {
       if (!isECFGEqual(getValues(), defaultECFG)) {
         if (
           !(await confirmDialog({
-            title: "確認",
+            title: "Confirmation",
             description:
-              "フォームが初期状態ではありません。変更を破棄して新規データを作成しますか？",
-            confirmText: "作成",
-            cancelText: "キャンセル",
+              "The form is not in its initial state. Discard changes and create a new grammar?",
+            confirmText: "Create",
+            cancelText: "Cancel",
           }))
         ) {
           return;
@@ -267,11 +269,11 @@ export function AppSidebar() {
       if (loaded && !isECFGEqual(getValues(), loaded)) {
         if (
           !(await confirmDialog({
-            title: "確認",
+            title: "Confirmation",
             description:
-              "ロード済みのデータから変更があります。破棄して新規データを作成しますか？",
-            confirmText: "作成",
-            cancelText: "キャンセル",
+              "There are unsaved changes to the currently loaded data. Discard changes and create a new grammar?",
+            confirmText: "Create",
+            cancelText: "Cancel",
           }))
         ) {
           return;
@@ -288,7 +290,7 @@ export function AppSidebar() {
   // -------------------------------------
   const handleLoad = async (key: string) => {
     if (!key) {
-      toast.error("ロードするセーブを選択してください。");
+      toast.error("Please select a save to load.");
       return;
     }
 
@@ -297,11 +299,11 @@ export function AppSidebar() {
       if (!isECFGEqual(getValues(), defaultECFG)) {
         if (
           !(await confirmDialog({
-            title: "確認",
+            title: "Confirmation",
             description:
-              "フォームが初期状態ではありません。変更を破棄して新規データを作成しますか？",
-            confirmText: "作成",
-            cancelText: "キャンセル",
+              "The form is not in its initial state. Discard changes and create a new grammar?",
+            confirmText: "Create",
+            cancelText: "Cancel",
           }))
         ) {
           return;
@@ -313,11 +315,11 @@ export function AppSidebar() {
       if (loaded && !isECFGEqual(getValues(), loaded)) {
         if (
           !(await confirmDialog({
-            title: "確認",
+            title: "Confirmation",
             description:
-              "ロード済みのデータから変更があります。破棄して新規データを作成しますか？",
-            confirmText: "作成",
-            cancelText: "キャンセル",
+              "There are unsaved changes to the currently loaded data. Discard changes and create a new grammar?",
+            confirmText: "Create",
+            cancelText: "Cancel",
           }))
         ) {
           return;
@@ -328,7 +330,7 @@ export function AppSidebar() {
     const raw = localStorage.getItem(key);
     if (!raw) {
       toast.error(
-        "選択されたキーが見つかりません。削除された可能性があります。",
+        "The selected save data was not found. It may have been deleted.",
       );
       return;
     }
@@ -351,9 +353,9 @@ export function AppSidebar() {
 
       // ロード状態
       setCurrentLoadedKey(key);
-      toast.success(`ロードしました: ${parsed.name} `);
+      toast.success(`Loaded save: ${parsed.name}`);
     } catch (e) {
-      toast.error("ロード失敗 (JSONパースエラー?)");
+      toast.error("Failed to load save. JSON parsing error?");
       console.error(e);
     }
   };
@@ -363,11 +365,11 @@ export function AppSidebar() {
   // -------------------------------------
   const handleDelete = (key: string) => {
     if (!key) {
-      toast.error("削除するセーブを選択してください。");
+      toast.error("Please select a save to delete.");
       return;
     }
     localStorage.removeItem(key);
-    toast.error(`削除しました: key=${key}`);
+    toast.error("Save deleted");
     // もしロード中のデータを消したらロード状態をクリア
     if (key === currentLoadedKey) {
       setCurrentLoadedKey("");
@@ -575,8 +577,8 @@ export function AppSidebar() {
                                   Delete the data &quot;{item.name}&quot;
                                 </DialogTitle>
                                 <DialogDescription>
-                                  This operation can not be undone. Do you
-                                  really delete &quot;{item.name}&quot;?
+                                  This action cannot be undone. Are you sure you
+                                  want to delete &quot;{item.name}&quot;?
                                 </DialogDescription>
                               </DialogHeader>
                               <DialogFooter>
