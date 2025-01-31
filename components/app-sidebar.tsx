@@ -48,7 +48,7 @@ import { Label } from "./ui/label";
 import { Input } from "./ui/input";
 import { defaultECFG } from "./core-contents";
 import { toast } from "sonner";
-import { useConfirm } from "./alert-dialog-wrapper";
+import { useConfirm } from "@/hooks/use-confirm";
 
 type SaveItem = {
   key: string; // localStorage のキー

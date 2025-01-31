@@ -1,4 +1,4 @@
-import { useState, useCallback, ReactNode } from "react";
+import { useState, useCallback } from "react";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -58,7 +58,7 @@ export const useConfirm = () => {
     options: ConfirmOptions;
   }>({ open: false, options: {} });
 
-  const confirm = useCallback(
+  const confirmDialog = useCallback(
     (options: ConfirmOptions = {}): Promise<boolean> => {
       return new Promise((resolve) => {
         setConfirmState({ open: true, resolve, options });
@@ -89,5 +89,5 @@ export const useConfirm = () => {
     [confirmState, handleConfirm, handleCancel],
   );
 
-  return { confirm, ConfirmProvider };
+  return { confirmDialog, ConfirmProvider };
 };
