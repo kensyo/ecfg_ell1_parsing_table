@@ -395,9 +395,9 @@ export function AppSidebar() {
               </DialogTrigger>
               <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                  <DialogTitle>Save the grammer as new</DialogTitle>
+                  <DialogTitle>Save the grammar as new</DialogTitle>
                   <DialogDescription>
-                    Enter a name of the grammer
+                    Enter a name of the grammar
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
@@ -446,7 +446,7 @@ export function AppSidebar() {
               onClick={handleNewData}
             >
               <Plus className="size-5" />
-              New Grammer
+              New Grammar
             </Button>
           </SidebarMenuItem>
         </SidebarMenu>
