@@ -302,8 +302,8 @@ export function AppSidebar() {
           !(await confirmDialog({
             title: "Confirmation",
             description:
-              "The form is not in its initial state. Discard changes and create a new grammar?",
-            confirmText: "Create",
+              "The form is not in its initial state. Discard changes and load the data?",
+            confirmText: "Load",
             cancelText: "Cancel",
           }))
         ) {
@@ -318,8 +318,8 @@ export function AppSidebar() {
           !(await confirmDialog({
             title: "Confirmation",
             description:
-              "There are unsaved changes to the currently loaded data. Discard changes and create a new grammar?",
-            confirmText: "Create",
+              "There are unsaved changes to the currently loaded data. Discard changes and load the data?",
+            confirmText: "Load",
             cancelText: "Cancel",
           }))
         ) {
