@@ -322,7 +322,7 @@ export default function ECFGForm() {
           control={control}
           render={({ field }) => (
             <Select value={field.value} onValueChange={field.onChange}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-[220px]">
                 <SelectValue placeholder="Choose NonTerminal" />
               </SelectTrigger>
               <SelectContent>
@@ -337,9 +337,11 @@ export default function ECFGForm() {
         />
       </FormItem>
 
+      <hr />
+
       {/* 5) forNullable, forFirstSet, forFollowSet, forDirectorSet */}
       <FormItem>
-        <Label>forNullable: string[]</Label>
+        <Label>For nullable</Label>
         {errors.forNullable && (
           <span className="px-2 text-sm text-red-500">
             {errors.forNullable.message}
@@ -375,7 +377,7 @@ export default function ECFGForm() {
       </FormItem>
 
       <FormItem>
-        <Label>forFirstSet: string[]</Label>
+        <Label>For first set</Label>
         {errors.forFirstSet && (
           <span className="px-2 text-sm text-red-500">
             {errors.forFirstSet.message}
@@ -411,7 +413,7 @@ export default function ECFGForm() {
       </FormItem>
 
       <FormItem>
-        <Label>forFollowSet: string (Select)</Label>
+        <Label>For follow set</Label>
         <Controller
           name="forFollowSet"
           control={control}
@@ -436,7 +438,7 @@ export default function ECFGForm() {
       </FormItem>
 
       <FormItem>
-        <Label>forDirectorSet: string (Select)</Label>
+        <Label>For director set</Label>
         <Controller
           name="forDirectorSet"
           control={control}
