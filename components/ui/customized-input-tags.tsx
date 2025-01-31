@@ -19,16 +19,15 @@ type InputTagsProps = Omit<InputProps, "value" | "onChange"> & {
 const CustomizedInputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
   ({ className, value, onChange, maxTags, ...props }, forwardedRef) => {
     // 変更1: ランダムに加えてキー用カウンターも使う
-    // ただし、コードを最小限に変えたいので、Date.now() + Math.random() 自体は維持
     const keyCounterRef = React.useRef(0);
 
-    // 各入力欄の文字列
+    // 各入力欄の文字列（タグ数 + 1 個）
     const [inputValues, setInputValues] = React.useState<string[]>(() =>
       Array(value.length + 1).fill(""),
     );
 
     // タグ表示用キー
-    // 変更2: 初期生成時にも suffix をつけて衝突を回避
+    // 変更2: 初期生成時にも suffix をつけて衝突回避
     const [keys, setKeys] = React.useState<string[]>(() =>
       value.map(() => {
         keyCounterRef.current++;
@@ -41,6 +40,9 @@ const CustomizedInputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
 
     // IME合成中かどうか
     const [isComposing, setIsComposing] = React.useState(false);
+
+    // ★ 削除等のあと、どのインデックスにフォーカスし直すかを管理
+    const [focusIndex, setFocusIndex] = React.useState<number | null>(null);
 
     /**
      * ref セット時のヘルパー
@@ -63,7 +65,6 @@ const CustomizedInputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
         setKeys((oldKeys) => {
           const newKeys = [...oldKeys];
           for (let i = 0; i < diff; i++) {
-            // ここも最小限の変更で安定度を高める
             keyCounterRef.current++;
             newKeys.push(
               `tag-${Date.now()}-${Math.random()}-${keyCounterRef.current}`,
@@ -83,7 +84,6 @@ const CustomizedInputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
      */
     const addTagAtIndex = (tag: string, index: number) => {
       if (!tag) return;
-
       if (maxTags !== undefined && value.length >= maxTags) {
         return;
       }
@@ -119,6 +119,7 @@ const CustomizedInputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
       setKeys((oldKeys) => oldKeys.filter((_, i) => i !== index));
       setInputValues((oldValues) => {
         const copy = [...oldValues];
+        // タグ i を削除するときは i+1 番目の inputValues も削除
         const removeIndex = index + 1;
         if (removeIndex < copy.length) {
           copy.splice(removeIndex, 1);
@@ -166,7 +167,11 @@ const CustomizedInputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
         selectionEnd === 0
       ) {
         e.preventDefault();
+        // 前のタグを削除
         removeTag(index - 1);
+        // ★ 削除後にどのインデックスにフォーカスするか
+        //   たとえば「前のタグを削除したなら、削除したタグの位置(index - 1)」に戻りたいならこうする:
+        setFocusIndex(index - 1);
         return;
       }
 
@@ -233,7 +238,7 @@ const CustomizedInputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
      * 特定のタグ用にバッジの色を変えるためのヘルパー
      */
     const getBadgeVariant = (tag: string) => {
-      // ここで「特別視するタグ」を定義
+      // 特別視するタグ
       const specialTags = ["\\{", "\\|", "\\}", "\\(", "\\)"];
       if (specialTags.includes(tag)) {
         return "default";
@@ -245,7 +250,6 @@ const CustomizedInputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
      * 特別タグの表示
      */
     const getDisplayText = (tag: string) => {
-      // もし内部には "\{" とかが入ってる想定なら map で変換する
       const mapping: Record<string, string> = {
         "\\{": "{",
         "\\|": "|",
@@ -253,12 +257,26 @@ const CustomizedInputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
         "\\(": "(",
         "\\)": ")",
       };
-
-      if (mapping[tag]) {
-        return mapping[tag];
-      }
-      return tag;
+      return mapping[tag] || tag;
     };
+
+    // ★ フォーカスインデックスが指定されたら、その input にフォーカス＆カーソル位置を設定
+    React.useEffect(() => {
+      if (focusIndex != null) {
+        // 配列範囲内におさまっているかチェック
+        if (focusIndex >= 0 && focusIndex < inputRefs.current.length) {
+          const el = inputRefs.current[focusIndex];
+          if (el) {
+            el.focus();
+            // たとえばカーソルを末尾にしたければ以下：
+            const len = inputValues[focusIndex]?.length || 0;
+            el.setSelectionRange(len, len);
+          }
+        }
+        // 一度フォーカスを当てたらクリア
+        setFocusIndex(null);
+      }
+    }, [focusIndex, inputValues, value]);
 
     return (
       <div
@@ -268,9 +286,8 @@ const CustomizedInputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
         )}
       >
         {value.map((tag, i) => (
-          // 変更3: key をさらに i と結合する
           <React.Fragment key={`${keys[i]}-${i}`}>
-            {/** タグ i の直前の入力欄 */}
+            {/* タグ i の直前の入力欄 */}
             <AutoResizeInput
               defaultWidth={1}
               ref={(el) => setInputRef(el, i)}
@@ -282,16 +299,15 @@ const CustomizedInputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
               onCompositionEnd={handleCompositionEnd}
               {...props}
             />
-
-            {/** タグ */}
+            {/* タグ */}
             <Badge variant={getBadgeVariant(tag)} className="rounded-md px-1">
               {getDisplayText(tag)}
             </Badge>
           </React.Fragment>
         ))}
 
-        {/** 最後の入力欄 */}
-        <AutoResizeInput
+        {/* 最後の入力欄 */}
+        <input
           ref={(el) => setInputRef(el, value.length)}
           className="flex-1 outline-none placeholder:text-neutral-500 dark:bg-neutral-950 dark:placeholder:text-neutral-400"
           value={inputValues[value.length] ?? ""}
