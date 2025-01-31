@@ -290,7 +290,7 @@ export default function ECFGForm() {
             <Button
               type="button"
               onClick={() => remove(index)}
-              className="bg-red-500 text-white"
+              variant="destructive"
             >
               Remove
             </Button>
@@ -300,7 +300,7 @@ export default function ECFGForm() {
         <Button
           type="button"
           onClick={() => append({ lhs: "", rhs: [] })}
-          className="mt-4 bg-green-500 text-white"
+          variant="default"
         >
           Add Production
         </Button>
@@ -478,9 +478,7 @@ export default function ECFGForm() {
       {wasmResults && (
         <div className="mt-4 space-y-4 rounded border p-2">
           <Table>
-            <TableCaption>
-              Rust/wasm メソッド実行結果 (入力値と出力の対応)
-            </TableCaption>
+            <TableCaption>Result</TableCaption>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-1/6">Target</TableHead>
@@ -546,13 +544,10 @@ export default function ECFGForm() {
                     <div>(empty or not selected)</div>
                   ) : (
                     <Table>
-                      <TableCaption>
-                        directorSet (Map&lt;string[], string[]&gt;)
-                      </TableCaption>
                       <TableHeader>
                         <TableRow>
                           <TableHead>RHS</TableHead>
-                          <TableHead>Result Set</TableHead>
+                          <TableHead>Set</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
