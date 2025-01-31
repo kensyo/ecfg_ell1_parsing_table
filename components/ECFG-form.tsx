@@ -527,7 +527,11 @@ export default function ECFGForm() {
                     : renderBadges([formData?.forFollowSet || ""])}
                 </TableCell>
                 <TableCell>
-                  {renderBadges(wasmResults.followSet, true)}
+                  {formData?.forFollowSet === "__none__" ? (
+                    <p>N/A</p>
+                  ) : (
+                    renderBadges(wasmResults.followSet, true)
+                  )}
                 </TableCell>
               </TableRow>
 
