@@ -31,26 +31,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { ECFG } from "./core-contents";
 
 // -------------------------------------
 // 型定義
 // -------------------------------------
-type Production = {
-  lhs: string; // 単一の文字列
-  rhs: string[]; // 複数タグの配列
-};
-
-type ECFG = {
-  terminals: string[];
-  nonTerminals: string[];
-  productions: Production[];
-  startSymbol: string;
-  // ↓ ここで wasm の各メソッド用の引数をフォームに追加
-  forNullable: string[];
-  forFirstSet: string[];
-  forFollowSet: string; // ← Select用, "__none__" なら未選択
-  forDirectorSet: string; // ← 同上
-};
 
 type WasmResults = {
   isELL1: boolean;
