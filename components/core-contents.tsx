@@ -7,6 +7,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarTrigger } from "./ui/sidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { FormProvider, useForm } from "react-hook-form";
+import { useConfirm } from "@/hooks/use-confirm";
 
 export type Production = {
   lhs: string; // 単一の文字列

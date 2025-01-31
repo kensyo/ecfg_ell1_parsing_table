@@ -47,6 +47,8 @@ import {
 import { Label } from "./ui/label";
 import { Input } from "./ui/input";
 import { defaultECFG } from "./core-contents";
+import { toast } from "sonner";
+import { useConfirm } from "./alert-dialog-wrapper";
 
 type SaveItem = {
   key: string; // localStorage のキー
@@ -62,6 +64,7 @@ type SaveData = {
 
 export function AppSidebar() {
   const { isMobile } = useSidebar();
+  const { confirmDialog, ConfirmProvider } = useConfirm();
 
   function isECFGEqual(a: ECFG, b: ECFG): boolean {
     return (
@@ -135,7 +138,7 @@ export function AppSidebar() {
   // -------------------------------------
   const handleNewSave = () => {
     if (!saveName) {
-      alert("セーブ名を入力してください。");
+      toast.error("Enter a save name");
       return;
     }
     const data = getValues();
@@ -148,7 +151,9 @@ export function AppSidebar() {
       data,
     };
     localStorage.setItem(newKey, JSON.stringify(obj));
-    alert(`新規セーブ: "${saveName}" (key=${newKey})`);
+    toast.success("A new save has been created!", {
+      description: `save name: ${saveName}`,
+    });
     setSaveName("");
 
     // ★ 新規セーブ後、そのデータをロード中にする
@@ -162,12 +167,12 @@ export function AppSidebar() {
   // -------------------------------------
   const handleOverwriteSave = () => {
     if (!currentLoadedKey) {
-      alert("ロード中のセーブデータがありません (上書き不可)。");
+      toast.error("No loaded data. Undable to overwrite.");
       return;
     }
     const raw = localStorage.getItem(currentLoadedKey);
     if (!raw) {
-      alert("ロード中のキーが見つかりません。削除された可能性があります。");
+      toast.error("No loaded key. Perhaps already deleted.");
       setCurrentLoadedKey("");
       refreshSaveList();
       return;
@@ -182,12 +187,14 @@ export function AppSidebar() {
         data: newData,
       };
       localStorage.setItem(currentLoadedKey, JSON.stringify(updated));
-      alert(`上書きしました: ${oldObj.name} (key=${currentLoadedKey})`);
+      toast.success("Succesfully overwritten!", {
+        description: `save name: ${oldObj.name}`,
+      });
 
       // 更新時刻が変わったので一覧再読み込み
       refreshSaveList();
     } catch (e) {
-      alert("上書きに失敗しました。パースエラー?");
+      toast.error("Failed to overwrite. Parse error?");
       console.error(e);
     }
   };
@@ -197,16 +204,16 @@ export function AppSidebar() {
   // -------------------------------------
   const handleRenameSave = (key: string) => {
     if (!key) {
-      alert("ロード中のセーブデータがありません。");
+      toast.error("No loaded data. Undable to overwrite.");
       return;
     }
     if (!saveName) {
-      alert("新しいセーブ名を入力してください。");
+      toast.error("Enter a new save name.");
       return;
     }
     const raw = localStorage.getItem(key);
     if (!raw) {
-      alert("ロード中のキーが見つかりません。削除された可能性があります。");
+      toast.error("No loaded key. Perhaps already deleted.");
       setCurrentLoadedKey("");
       refreshSaveList();
       return;
@@ -225,10 +232,10 @@ export function AppSidebar() {
       // セーブ名入力フォームはクリア or 継続好みで
       setSaveName("");
 
-      alert(`リネームしました: ${oldObj.name} -> ${renamed.name} (key=${key})`);
+      toast.info(`Renamed: ${oldObj.name} -> ${renamed.name}`);
       refreshSaveList();
     } catch (e) {
-      alert("リネームに失敗しました。パースエラー?");
+      toast.error("Failed to rename. Parse error?");
       console.error(e);
     }
   };
@@ -237,15 +244,19 @@ export function AppSidebar() {
   // 新規データ (フォーム初期化 & ロード状態を解除)
   // 何もロードしていない or ロード中 => 変更があれば確認
   // -------------------------------------
-  const handleNewData = () => {
+  const handleNewData = async () => {
     // 1) 何もロードしていない状態
     if (!currentLoadedKey) {
       // フォームが初期状態と異なる場合は確認
       if (!isECFGEqual(getValues(), defaultECFG)) {
         if (
-          !confirm(
-            "フォームが初期状態ではありません。変更を破棄して新規データを作成しますか？",
-          )
+          !(await confirmDialog({
+            title: "確認",
+            description:
+              "フォームが初期状態ではありません。変更を破棄して新規データを作成しますか？",
+            confirmText: "作成",
+            cancelText: "キャンセル",
+          }))
         ) {
           return;
         }
@@ -255,9 +266,13 @@ export function AppSidebar() {
       const loaded = getCurrentLoadedData();
       if (loaded && !isECFGEqual(getValues(), loaded)) {
         if (
-          !confirm(
-            "ロード済みのデータから変更があります。破棄して新規データを作成しますか？",
-          )
+          !(await confirmDialog({
+            title: "確認",
+            description:
+              "ロード済みのデータから変更があります。破棄して新規データを作成しますか？",
+            confirmText: "作成",
+            cancelText: "キャンセル",
+          }))
         ) {
           return;
         }
@@ -271,9 +286,9 @@ export function AppSidebar() {
   // -------------------------------------
   // ロード
   // -------------------------------------
-  const handleLoad = (key: string) => {
+  const handleLoad = async (key: string) => {
     if (!key) {
-      alert("ロードするセーブを選択してください。");
+      toast.error("ロードするセーブを選択してください。");
       return;
     }
 
@@ -281,9 +296,13 @@ export function AppSidebar() {
     if (!currentLoadedKey) {
       if (!isECFGEqual(getValues(), defaultECFG)) {
         if (
-          !confirm(
-            "フォームが初期状態ではありません。変更を破棄してロードしますか？",
-          )
+          !(await confirmDialog({
+            title: "確認",
+            description:
+              "フォームが初期状態ではありません。変更を破棄して新規データを作成しますか？",
+            confirmText: "作成",
+            cancelText: "キャンセル",
+          }))
         ) {
           return;
         }
@@ -293,9 +312,13 @@ export function AppSidebar() {
       const loaded = getCurrentLoadedData();
       if (loaded && !isECFGEqual(getValues(), loaded)) {
         if (
-          !confirm(
-            "ロード済みデータから変更があります。破棄してロードしますか？",
-          )
+          !(await confirmDialog({
+            title: "確認",
+            description:
+              "ロード済みのデータから変更があります。破棄して新規データを作成しますか？",
+            confirmText: "作成",
+            cancelText: "キャンセル",
+          }))
         ) {
           return;
         }
@@ -304,7 +327,9 @@ export function AppSidebar() {
 
     const raw = localStorage.getItem(key);
     if (!raw) {
-      alert("選択されたキーが見つかりません。削除された可能性があります。");
+      toast.error(
+        "選択されたキーが見つかりません。削除された可能性があります。",
+      );
       return;
     }
     try {
@@ -326,9 +351,9 @@ export function AppSidebar() {
 
       // ロード状態
       setCurrentLoadedKey(key);
-      alert(`ロードしました: ${parsed.name} (key=${key})`);
+      toast.success(`ロードしました: ${parsed.name} `);
     } catch (e) {
-      alert("ロード失敗 (JSONパースエラー?)");
+      toast.error("ロード失敗 (JSONパースエラー?)");
       console.error(e);
     }
   };
@@ -338,11 +363,11 @@ export function AppSidebar() {
   // -------------------------------------
   const handleDelete = (key: string) => {
     if (!key) {
-      alert("削除するセーブを選択してください。");
+      toast.error("削除するセーブを選択してください。");
       return;
     }
     localStorage.removeItem(key);
-    alert(`削除しました: key=${key}`);
+    toast.error(`削除しました: key=${key}`);
     // もしロード中のデータを消したらロード状態をクリア
     if (key === currentLoadedKey) {
       setCurrentLoadedKey("");
@@ -585,6 +610,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <ConfirmProvider />
     </Sidebar>
   );
 }
