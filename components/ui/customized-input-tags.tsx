@@ -18,7 +18,7 @@ type InputTagsProps = Omit<InputProps, "value" | "onChange"> & {
  */
 const CustomizedInputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
   ({ className, value, onChange, maxTags, ...props }, forwardedRef) => {
-    // 変更1: ランダムに加えてキー用カウンターも使う
+    // ユニークキー生成用カウンター
     const keyCounterRef = React.useRef(0);
 
     // 各入力欄の文字列（タグ数 + 1 個）
@@ -27,7 +27,6 @@ const CustomizedInputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
     );
 
     // タグ表示用キー
-    // 変更2: 初期生成時にも suffix をつけて衝突回避
     const [keys, setKeys] = React.useState<string[]>(() =>
       value.map(() => {
         keyCounterRef.current++;
@@ -41,7 +40,7 @@ const CustomizedInputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
     // IME合成中かどうか
     const [isComposing, setIsComposing] = React.useState(false);
 
-    // ★ 削除等のあと、どのインデックスにフォーカスし直すかを管理
+    // フォーカスさせたいインデックスを記憶
     const [focusIndex, setFocusIndex] = React.useState<number | null>(null);
 
     /**
@@ -147,7 +146,9 @@ const CustomizedInputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
         e.preventDefault();
         const trimmed = currentValue.trim();
         if (trimmed !== "") {
+          // タグを追加
           addTagAtIndex(trimmed, index);
+          // 追加後、次の入力欄を空にしておく（既存のロジック）
           setInputValues((oldValues) => {
             const copy = [...oldValues];
             if (index + 1 < copy.length) {
@@ -155,6 +156,8 @@ const CustomizedInputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
             }
             return copy;
           });
+          // ★ 追加後は次の入力欄へフォーカスを移す
+          setFocusIndex(index + 1);
         }
         return;
       }
@@ -169,8 +172,7 @@ const CustomizedInputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
         e.preventDefault();
         // 前のタグを削除
         removeTag(index - 1);
-        // ★ 削除後にどのインデックスにフォーカスするか
-        //   たとえば「前のタグを削除したなら、削除したタグの位置(index - 1)」に戻りたいならこうする:
+        // 削除後は「前のタグの位置」にフォーカスを戻す例
         setFocusIndex(index - 1);
         return;
       }
@@ -247,7 +249,7 @@ const CustomizedInputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
     };
 
     /**
-     * 特別タグの表示
+     * 特別タグの表示変換
      */
     const getDisplayText = (tag: string) => {
       const mapping: Record<string, string> = {
@@ -260,20 +262,19 @@ const CustomizedInputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
       return mapping[tag] || tag;
     };
 
-    // ★ フォーカスインデックスが指定されたら、その input にフォーカス＆カーソル位置を設定
+    // ★ focusIndex がセットされるたびに、その位置の input にフォーカス＆カーソル位置を再設定
     React.useEffect(() => {
       if (focusIndex != null) {
-        // 配列範囲内におさまっているかチェック
         if (focusIndex >= 0 && focusIndex < inputRefs.current.length) {
           const el = inputRefs.current[focusIndex];
           if (el) {
             el.focus();
-            // たとえばカーソルを末尾にしたければ以下：
-            const len = inputValues[focusIndex]?.length || 0;
+            // カーソルを末尾にしたい場合は以下を使用
+            const len = inputValues[focusIndex]?.length ?? 0;
             el.setSelectionRange(len, len);
           }
         }
-        // 一度フォーカスを当てたらクリア
+        // フォーカスを当て終わったらリセット
         setFocusIndex(null);
       }
     }, [focusIndex, inputValues, value]);
@@ -287,7 +288,7 @@ const CustomizedInputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
       >
         {value.map((tag, i) => (
           <React.Fragment key={`${keys[i]}-${i}`}>
-            {/* タグ i の直前の入力欄 */}
+            {/** タグ i の直前の入力欄 */}
             <AutoResizeInput
               defaultWidth={1}
               ref={(el) => setInputRef(el, i)}
@@ -299,15 +300,15 @@ const CustomizedInputTags = React.forwardRef<HTMLInputElement, InputTagsProps>(
               onCompositionEnd={handleCompositionEnd}
               {...props}
             />
-            {/* タグ */}
+            {/** タグ本体 */}
             <Badge variant={getBadgeVariant(tag)} className="rounded-md px-1">
               {getDisplayText(tag)}
             </Badge>
           </React.Fragment>
         ))}
 
-        {/* 最後の入力欄 */}
-        <input
+        {/** 最後の入力欄 */}
+        <AutoResizeInput
           ref={(el) => setInputRef(el, value.length)}
           className="flex-1 outline-none placeholder:text-neutral-500 dark:bg-neutral-950 dark:placeholder:text-neutral-400"
           value={inputValues[value.length] ?? ""}
