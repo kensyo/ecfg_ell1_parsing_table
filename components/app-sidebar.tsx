@@ -68,10 +68,11 @@ export function AppSidebar() {
 
   function isECFGEqual(a: ECFG, b: ECFG): boolean {
     return (
-      JSON.stringify(a.terminals) === JSON.stringify(b.terminals) &&
-      JSON.stringify(a.nonTerminals) === JSON.stringify(b.nonTerminals) &&
-      JSON.stringify(a.productions) === JSON.stringify(b.productions) &&
-      a.startSymbol === b.startSymbol
+      JSON.stringify(a) === JSON.stringify(b)
+      // JSON.stringify(a.terminals) === JSON.stringify(b.terminals) &&
+      // JSON.stringify(a.nonTerminals) === JSON.stringify(b.nonTerminals) &&
+      // JSON.stringify(a.productions) === JSON.stringify(b.productions) &&
+      // a.startSymbol === b.startSymbol
     );
   }
 
